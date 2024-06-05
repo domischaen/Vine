@@ -2,8 +2,8 @@
 // @name         New Article Notifier
 // @namespace    http://tampermonkey.net/
 // @version      1.3
-// @updateURL    https://github.com/domischaen/Vine/raw/main/ArticleNotifier.user.js
-// @downloadURL  https://github.com/domischaen/Vine/raw/main/ArticleNotifier.user.js
+// @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
+// @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
 // @author       Domi
 // @match        https://www.amazon.de/vine/vine-items?queue=last_chance*
