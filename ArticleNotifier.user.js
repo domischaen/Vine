@@ -1,13 +1,16 @@
 // ==UserScript==
 // @name         New Article Notifier
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.4.1
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
 // @author       Domi
 // @match        https://www.amazon.de/vine/vine-items?queue=last_chance*
 // @grant        GM_xmlhttpRequest
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        unsafeWindow
 // ==/UserScript==
 
 (function() {
