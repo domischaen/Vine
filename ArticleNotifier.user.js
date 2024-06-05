@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         New Article Notifier
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -33,7 +33,6 @@
             console.log('Daten erfolgreich gesendet.');
         }
 
-        // Überprüfen, ob die Antwort JSON ist
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
             const data = await response.json();
