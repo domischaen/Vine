@@ -175,7 +175,8 @@
 
     document.body.appendChild(statusElement);
 
-    statusElement.addEventListener('click', function() {
+    statusElement.addEventListener('click', function(event) {
+        event.stopPropagation();
         if (intervalId) {
             stopInterval();
         } else {
