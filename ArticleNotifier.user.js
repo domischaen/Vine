@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         New Article Notifier
 // @namespace    http://tampermonkey.net/
-// @version      1.4.2
+// @version      1.4.3
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -180,6 +180,12 @@
             stopInterval();
         } else {
             startInterval();
+        }
+    });
+
+    document.addEventListener('click', function() {
+        if (intervalId) {
+            stopInterval();
         }
     });
 
