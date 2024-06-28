@@ -1,13 +1,12 @@
 // ==UserScript==
 // @name         New Article Notifier
 // @namespace    http://tampermonkey.net/
-// @version      1.4.4
+// @version      1.4.6
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
 // @author       Domi
-// @match        https://www.amazon.de/vine/vine-items?queue=last_chance*
-// @match        https://www.amazon.de/vine/vine-items?queue=encore*
+// @match        https://www.amazon.de/vine/vine-items*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -37,46 +36,49 @@
     }
 
     async function sendArticleInfos(articleInfos) {
-        const category = getCategory();
-        if (!category) {
-            console.error('Kategorie nicht erkannt.');
-            return;
-        }
-
-        console.log('Sending article information with category:', category);
-
-        const articlesWithCategory = articleInfos.map(article => ({ ...article, kategorie: category }));
-
-        console.log('Articles to be sent:', JSON.stringify(articlesWithCategory, null, 2));
-
-        try {
-            const response = await fetch(serverUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ articles: articlesWithCategory })
-            });
-
-            if (!response.ok) {
-                throw new Error('Daten NICHT gesendet.');
-            } else {
-                console.log('Daten erfolgreich gesendet.');
-            }
-
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                return data;
-            } else {
-                console.warn('Antwort ist kein JSON:', await response.text());
-                return null;
-            }
-        } catch (error) {
-            console.error('Fehler beim Senden der Artikelinformationen:', error);
-        }
+    const category = getCategory();
+    if (!category) {
+        console.error('Kategorie nicht erkannt.');
+        return;
     }
 
+    console.log('Sending article information with category:', category);
+
+    const articlesWithCategory = articleInfos.map(article => ({
+        ...article,
+        kategorie: category,
+        isParentAsin: article.isParentAsin
+    }));
+
+    console.log('Articles to be sent:', JSON.stringify(articlesWithCategory, null, 2));
+
+    try {
+        const response = await fetch(serverUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ articles: articlesWithCategory })
+        });
+
+        if (!response.ok) {
+            throw new Error('Daten NICHT gesendet.');
+        } else {
+            console.log('Daten erfolgreich gesendet.');
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            return data;
+        } else {
+            console.warn('Antwort ist kein JSON:', await response.text());
+            return null;
+        }
+    } catch (error) {
+        console.error('Fehler beim Senden der Artikelinformationen:', error);
+    }
+}
     function showNotification(title, body, imageUrl, linkUrl) {
         if (Notification.permission === 'granted') {
             new Notification(title, {
@@ -95,20 +97,22 @@
     }
 
     function extractArticleInfos(elements) {
-        let articleInfos = [];
-        elements.forEach(element => {
-            const id = element.getAttribute('data-recommendation-id');
-            if (id) {
-                const asin = element.querySelector('input[data-asin]').getAttribute('data-asin');
-                const description = element.querySelector('.a-truncate-full').innerText.trim();
-                const imageUrl = element.querySelector('img').src;
-                articleInfos.push({ id, asin, description, imageUrl });
-            }
-        });
+    let articleInfos = [];
+    elements.forEach(element => {
+        const id = element.getAttribute('data-recommendation-id');
+        if (id) {
+            const asin = element.querySelector('input[data-asin]').getAttribute('data-asin');
+            const description = element.querySelector('.a-truncate-full').innerText.trim();
+            const imageUrl = element.querySelector('img').src;
+            const isParentAsin = element.querySelector('input[data-asin]').getAttribute('data-is-parent-asin') === 'true';
 
-        console.log('Extracted article infos:', articleInfos); // Debugging log
-        return articleInfos;
-    }
+            articleInfos.push({ id, asin, description, imageUrl, isParentAsin });
+        }
+    });
+
+    console.log('Extracted article infos:', articleInfos); // Debugging log
+    return articleInfos;
+}
 
     async function checkForNewArticles(newInfos, elements) {
         const result = await sendArticleInfos(newInfos);
@@ -126,8 +130,8 @@
         }
     }
 
-    let infos = extractArticleInfos(document.querySelectorAll('.vvp-item-tile, .vvp-item-tile.ave-element-new'));
-    checkForNewArticles(infos, Array.from(document.querySelectorAll('.vvp-item-tile, .vvp-item-tile.ave-element-new')));
+    let infos = extractArticleInfos(document.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new'));
+    checkForNewArticles(infos, Array.from(document.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new')));
 
     function setReloadInterval() {
         const interval = Math.floor(Math.random() * (maxInterval - minInterval + 1)) + minInterval;
@@ -195,4 +199,36 @@
         (currentUrl.includes('queue=last_chance') || currentUrl.includes('queue=encore&pn=340846031'))) {
         startInterval();
     }
+
+    if (currentUrl.includes('vine-data=')) {
+        const startIndex = currentUrl.indexOf('vine-data=') + 10;
+        const endIndex = currentUrl.indexOf('&', startIndex);
+        const vineDataParam = endIndex === -1 ? currentUrl.substring(startIndex) : currentUrl.substring(startIndex, endIndex);
+
+        try {
+            const { asin, recommendationId, isParentAsin } = JSON.parse(decodeURIComponent(vineDataParam));
+
+            const vineElementTmp = document.createElement('div');
+            vineElementTmp.style.display = 'none';
+            vineElementTmp.innerHTML = `
+                <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
+                    <span class="a-button-inner">
+                        <input data-asin="${asin}" data-is-parent-asin="${isParentAsin}" data-recommendation-id="${recommendationId}" data-recommendation-type="VENDOR_TARGETED" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
+                        <span class="a-button-text" aria-hidden="true" id="a-autoid-0-announce">Weitere Details</span>
+                    </span>
+                </span>
+            `;
+            document.body.appendChild(vineElementTmp);
+
+            setTimeout(() => {
+                vineElementTmp.querySelector('input').click();
+                setTimeout(() => {
+                    vineElementTmp.remove();
+                }, 200);
+            }, 500);
+        } catch (error) {
+            console.error('Fehler beim Verarbeiten von vine-data:', error);
+        }
+    }
+
 })();
