@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         New Article Notifier
+// @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.4.6
+// @version      1.5.0
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -10,19 +10,23 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_openInTab
 // @grant        unsafeWindow
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    const serverUrl = 'https://vinefuckers.de/api/articles';
-    const minInterval = 5000;
-    const maxInterval = 10000;
-    let intervalId;
+    const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
+    const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
+    const lastChanceUrl = 'https://www.amazon.de/vine/vine-items?queue=last_chance';
+    const encoreFixedUrl = 'https://www.amazon.de/vine/vine-items?queue=encore&pn=340846031';
+    const encoreBaseUrl = 'https://www.amazon.de/vine/vine-items?queue=encore&pn=&cn=&page=';
+    let currentEncorePage = localStorage.getItem('currentEncorePage') || 1;
+    let isFetchingEncore = false;
+    let isLastChance = true;
 
-    function getCategory() {
-        const url = window.location.href;
+    function getCategory(url) {
         if (url.includes('queue=last_chance')) {
             return 'vfa';
         } else if (url.includes('queue=encore')) {
@@ -35,178 +39,359 @@
         return null;
     }
 
-    async function sendArticleInfos(articleInfos) {
-    const category = getCategory();
-    if (!category) {
-        console.error('Kategorie nicht erkannt.');
-        return;
-    }
+    async function sendArticleInfos(articleInfos, category) {
+        const articlesWithCategory = articleInfos.map(article => ({
+            ...article,
+            kategorie: category,
+            isParentAsin: article.isParentAsin
+        }));
 
-    console.log('Sending article information with category:', category);
+        try {
+            const response = await fetch(sendArticlesUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    articles: articlesWithCategory
+                })
+            });
 
-    const articlesWithCategory = articleInfos.map(article => ({
-        ...article,
-        kategorie: category,
-        isParentAsin: article.isParentAsin
-    }));
+            if (!response.ok) {
+                throw new Error('Daten NICHT gesendet.');
+            } else {
+                console.log('Daten erfolgreich gesendet.');
+            }
 
-    console.log('Articles to be sent:', JSON.stringify(articlesWithCategory, null, 2));
-
-    try {
-        const response = await fetch(serverUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ articles: articlesWithCategory })
-        });
-
-        if (!response.ok) {
-            throw new Error('Daten NICHT gesendet.');
-        } else {
-            console.log('Daten erfolgreich gesendet.');
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                return data;
+            } else {
+                console.warn('Antwort ist kein JSON:', await response.text());
+                return null;
+            }
+        } catch (error) {
+            console.error('Fehler beim Senden der Artikelinformationen:', error);
         }
-
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-            const data = await response.json();
-            return data;
-        } else {
-            console.warn('Antwort ist kein JSON:', await response.text());
-            return null;
-        }
-    } catch (error) {
-        console.error('Fehler beim Senden der Artikelinformationen:', error);
-    }
-}
-    function showNotification(title, body, imageUrl, linkUrl) {
-        if (Notification.permission === 'granted') {
-            new Notification(title, {
-                body: body,
-                icon: imageUrl,
-                data: { url: linkUrl }
-            }).onclick = function(event) {
-                event.preventDefault();
-                window.open(event.target.data.url, '_blank');
-            };
-        }
-    }
-
-    if (Notification.permission !== 'granted') {
-        Notification.requestPermission();
     }
 
     function extractArticleInfos(elements) {
-    let articleInfos = [];
-    elements.forEach(element => {
-        const id = element.getAttribute('data-recommendation-id');
-        if (id) {
-            const asin = element.querySelector('input[data-asin]').getAttribute('data-asin');
-            const description = element.querySelector('.a-truncate-full').innerText.trim();
-            const imageUrl = element.querySelector('img').src;
-            const isParentAsin = element.querySelector('input[data-asin]').getAttribute('data-is-parent-asin') === 'true';
+        let articleInfos = [];
+        elements.forEach(element => {
+            const id = element.getAttribute('data-recommendation-id');
+            if (id) {
+                const asin = element.querySelector('input[data-asin]').getAttribute('data-asin');
+                const description = element.querySelector('.a-truncate-full').innerText.trim();
+                const imageUrl = element.querySelector('img').src;
+                const isParentAsin = element.querySelector('input[data-asin]').getAttribute('data-is-parent-asin') === 'true';
 
-            articleInfos.push({ id, asin, description, imageUrl, isParentAsin });
-        }
-    });
+                articleInfos.push({
+                    id,
+                    asin,
+                    description,
+                    imageUrl,
+                    isParentAsin
+                });
+            }
+        });
 
-    console.log('Extracted article infos:', articleInfos); // Debugging log
-    return articleInfos;
-}
+        console.log('Extrahierte Artikelinfos:', articleInfos);
+        return articleInfos;
+    }
 
-    async function checkForNewArticles(newInfos, elements) {
-        const result = await sendArticleInfos(newInfos);
-        if (result && result.newArticleIds.length > 0) {
-            result.newArticleIds.forEach(id => {
-                const element = elements.find(el => el.getAttribute('data-recommendation-id') === id);
-                if (element) {
-                    const imageUrl = element.querySelector('img').src;
-                    const title = element.querySelector('.a-truncate-full').innerText.trim();
-                    const asin = element.querySelector('input[data-asin]').getAttribute('data-asin');
-                    const linkUrl = `https://www.amazon.de/dp/${asin}`;
-                    showNotification('Neuer Artikel in Verfügbar für alle', title, imageUrl, linkUrl);
+    async function checkForNewArticles(url) {
+        console.log(`Überprüfe neue Artikel auf ${url}...`);
+        try {
+            const response = await fetch(url);
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            const elements = doc.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new');
+            const newInfos = extractArticleInfos(Array.from(elements));
+            const category = getCategory(url);
+
+            if (newInfos.length > 0) {
+                const result = await sendArticleInfos(newInfos, category);
+                if (result && result.newArticleIds.length > 0) {
+                    updateVvpItemsGrid(newInfos);
                 }
+            }
+        } catch (error) {
+            console.error('Fehler beim Überprüfen neuer Artikel:', error);
+        }
+    }
+
+    async function fetchEncorePage() {
+        console.log(`Fetching encore page ${currentEncorePage}...`);
+        updateEncorePageInfo(currentEncorePage);
+        try {
+            if (isFetchingEncore) return;
+            isFetchingEncore = true;
+
+            const response = await fetch(`${encoreBaseUrl}${currentEncorePage}`);
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            const elements = doc.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new');
+            const newInfos = extractArticleInfos(Array.from(elements));
+            const category = getCategory(`${encoreBaseUrl}${currentEncorePage}`);
+
+            if (newInfos.length > 0) {
+                const result = await sendArticleInfos(newInfos, category);
+                if (result && result.newArticleIds.length > 0) {
+                    updateVvpItemsGrid(newInfos);
+                }
+            }
+
+            const nextPageButton = doc.querySelector('.a-last');
+            if (nextPageButton && nextPageButton.classList.contains('a-disabled')) {
+                currentEncorePage = 1;
+            } else {
+                currentEncorePage++;
+            }
+
+            localStorage.setItem('currentEncorePage', currentEncorePage);
+        } catch (error) {
+            console.error('Fehler beim Abrufen der Encore-Seite:', error);
+        } finally {
+            isFetchingEncore = false;
+        }
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function updateEncorePageInfo(page) {
+        const pageInfoElement = document.querySelector('.page-info');
+        if (pageInfoElement) {
+            pageInfoElement.textContent = `Aktuelle ZA Seite: ${page}`;
+        } else {
+            const newPageInfoElement = document.createElement('div');
+            newPageInfoElement.classList.add('page-info');
+            newPageInfoElement.style.position = 'fixed';
+            newPageInfoElement.style.bottom = '10px';
+            newPageInfoElement.style.right = '10px';
+            newPageInfoElement.style.padding = '10px';
+            newPageInfoElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            newPageInfoElement.style.color = 'white';
+            newPageInfoElement.style.fontSize = '14px';
+            newPageInfoElement.style.borderRadius = '5px';
+            newPageInfoElement.style.zIndex = '10000';
+            newPageInfoElement.textContent = `Aktuelle ZA Seite: ${page}`;
+            document.body.appendChild(newPageInfoElement);
+        }
+    }
+
+    async function startFetchingArticles() {
+        try {
+            while (true) {
+                await checkForNewArticles(isLastChance ? lastChanceUrl : encoreFixedUrl);
+                isLastChance = !isLastChance;
+                await sleep(getRandomInt(5000, 10000));
+                await fetchEncorePage();
+                await sleep(getRandomInt(5000, 10000));
+            }
+        } catch (error) {
+            console.error('Fehler beim Starten der Artikelüberwachung:', error);
+        }
+    }
+
+    function injectSearchUI() {
+        if (document.querySelector('.search-container')) return;
+
+        const vvpItemsButtonContainer = document.getElementById('vvp-items-button-container');
+        if (!vvpItemsButtonContainer) return;
+
+        // Suchleiste
+        const searchContainer = document.createElement('div');
+        searchContainer.classList.add('search-container');
+
+        searchContainer.innerHTML = `
+        <input type="text" id="searchQuery" placeholder="Suche Vine Produkte">
+        <button id="searchButton">Suchen</button>
+        <button id="resetSearchButton" style="margin-left: 10px;">Suche zurücksetzen</button>
+    `;
+
+        // CSS für die Suchleiste
+        const style = document.createElement('style');
+        style.textContent = `
+        .search-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        .search-container input {
+            flex: 1;
+            padding: 8px;
+            font-size: 14px;
+            margin-right: 5px;
+        }
+        .search-container button {
+            padding: 8px 15px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .search-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            clear: both; /* Verhindert das Verschieben neben andere Elemente */
+        }
+        .search-result-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            overflow: hidden; /* Verhindert, dass Inhalt außerhalb des Rahmens sichtbar wird */
+        }
+        .search-result-item img {
+            max-width: 100%;
+            height: auto;
+        }
+    `;
+
+        const searchResultsContainer = document.createElement('div');
+        searchResultsContainer.classList.add('search-results-grid');
+        vvpItemsButtonContainer.appendChild(searchContainer);
+        vvpItemsButtonContainer.parentNode.insertBefore(searchResultsContainer, vvpItemsButtonContainer.nextSibling);
+        document.head.appendChild(style);
+
+        const searchButton = document.getElementById('searchButton');
+        const searchQueryInput = document.getElementById('searchQuery');
+        const resetSearchButton = document.getElementById('resetSearchButton');
+
+        searchButton.addEventListener('click', async () => {
+            const query = searchQueryInput.value.trim();
+            if (query === '') return;
+
+            searchResultsContainer.innerHTML = 'Lädt...';
+            try {
+                const response = await fetch(`${searchArticlesUrl}${encodeURIComponent(query)}`);
+                const data = await response.json();
+                displaySearchResults(data.articles);
+            } catch (error) {
+                console.error('Fehler bei der Suche:', error);
+                searchResultsContainer.innerHTML = 'Fehler bei der Suche.';
+            }
+        });
+
+        resetSearchButton.addEventListener('click', () => {
+            searchQueryInput.value = '';
+            searchResultsContainer.innerHTML = '';
+        });
+
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            const seconds = date.getSeconds().toString().padStart(2, '0');
+
+            return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+        }
+
+        function displaySearchResults(articles) {
+            if (articles.length === 0) {
+                searchResultsContainer.innerHTML = 'Keine Ergebnisse gefunden.';
+                return;
+            }
+
+            searchResultsContainer.innerHTML = '';
+            articles.forEach(article => {
+                const createdAtFormatted = formatTimestamp(article.createdAt);
+                const lastSeenFormatted = formatTimestamp(article.lastSeen);
+                const item = document.createElement('div');
+                item.classList.add('search-result-item');
+                item.innerHTML = `
+                <img src="${article.imageUrl}" alt="${article.description}" />
+                <p>${article.description}</p>
+                <p>ASIN: ${article.asin}</p>
+                <p>Kategorie: ${article.kategorie}</p>
+                <p>Zuerst gesehen: ${createdAtFormatted}</p>
+                <p>Zuletzt gesehen: ${lastSeenFormatted}</p>
+                <button class="view-details-btn">Artikelseite</button>
+                <button class="view-vine-details-btn">Weitere Details</button>
+            `;
+
+                const viewArticleButton = item.querySelector('.view-details-btn');
+                viewArticleButton.addEventListener('click', () => {
+                    window.open(`https://www.amazon.de/dp/${article.asin}`, '_blank');
+                });
+
+                const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
+                viewVineDetailsButton.addEventListener('click', () => {
+                    const vineElementTmp = document.createElement('div');
+                    vineElementTmp.style.display = 'none';
+                    vineElementTmp.innerHTML = `
+                    <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
+                        <span class="a-button-inner">
+                            <input data-asin="${article.asin}" data-is-parent-asin="${article.isParentAsin}" data-recommendation-id="${article.id}" data-recommendation-type="VENDOR_TARGETED" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
+                            <span class="a-button-text" aria-hidden="true" id="a-autoid-0-announce">Weitere Details</span>
+                        </span>
+                    </span>
+                `;
+                    document.body.appendChild(vineElementTmp);
+
+                    setTimeout(() => {
+                        vineElementTmp.querySelector('input').click();
+                        setTimeout(() => {
+                            vineElementTmp.remove();
+                        }, 200);
+                    }, 500);
+                });
+
+                searchResultsContainer.appendChild(item);
             });
         }
     }
 
-    let infos = extractArticleInfos(document.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new'));
-    checkForNewArticles(infos, Array.from(document.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new')));
+    function updateVvpItemsGrid(newArticles) {
+        const vvpItemsGrid = document.getElementById('vvp-items-grid');
+        if (!vvpItemsGrid) return;
 
-    function setReloadInterval() {
-        const interval = Math.floor(Math.random() * (maxInterval - minInterval + 1)) + minInterval;
-        let timeRemaining = Math.floor(interval / 1000);
-
-        intervalId = setInterval(() => {
-            if (timeRemaining <= 0) {
-                clearInterval(intervalId);
-                window.location.reload();
-            } else {
-                timeRemaining -= 1;
-                statusElement.innerText = `New Article Notifier is active. Reloading in ${timeRemaining} seconds.`;
-            }
-        }, 1000);
+        newArticles.forEach(article => {
+            const item = document.createElement('div');
+            item.classList.add('vvp-item-tile');
+            item.innerHTML = `
+                <img src="${article.imageUrl}" alt="${article.description}" />
+                <p>${article.description}</p>
+                <p>ASIN: ${article.asin}</p>
+                <p>ID: ${article.id}</p>
+                <p>Kategorie: ${article.kategorie}</p>
+            `;
+            vvpItemsGrid.insertBefore(item, vvpItemsGrid.firstChild);
+        });
     }
 
-    function startInterval() {
-        if (!intervalId) {
-            setReloadInterval();
-            localStorage.setItem('notifierActive', 'true');
-            statusElement.innerText = 'New Article Notifier is active.';
-        }
+    function getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min)) + min;
     }
 
-    function stopInterval() {
-        if (intervalId) {
-            clearInterval(intervalId);
-            intervalId = null;
-            statusElement.innerText = 'New Article Notifier is inactive.';
-            localStorage.setItem('notifierActive', 'false');
-        }
+    function init() {
+        startFetchingArticles();
+        injectSearchUI();
     }
-
-    const statusElement = document.createElement('div');
-    statusElement.style.position = 'fixed';
-    statusElement.style.bottom = '10px';
-    statusElement.style.right = '10px';
-    statusElement.style.padding = '10px';
-    statusElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    statusElement.style.color = 'white';
-    statusElement.style.fontSize = '14px';
-    statusElement.style.borderRadius = '5px';
-    statusElement.style.zIndex = '10000';
-    statusElement.innerText = 'New Article Notifier is inactive.';
-
-    document.body.appendChild(statusElement);
-
-    statusElement.addEventListener('click', function(event) {
-        event.stopPropagation();
-        if (intervalId) {
-            stopInterval();
-        } else {
-            startInterval();
-        }
-    });
-
-    document.addEventListener('click', function() {
-        if (intervalId) {
-            stopInterval();
-        }
-    });
 
     const currentUrl = window.location.href;
-    if (localStorage.getItem('notifierActive') === 'true' &&
-        (currentUrl.includes('queue=last_chance') || currentUrl.includes('queue=encore&pn=340846031'))) {
-        startInterval();
-    }
-
     if (currentUrl.includes('vine-data=')) {
         const startIndex = currentUrl.indexOf('vine-data=') + 10;
         const endIndex = currentUrl.indexOf('&', startIndex);
         const vineDataParam = endIndex === -1 ? currentUrl.substring(startIndex) : currentUrl.substring(startIndex, endIndex);
 
         try {
-            const { asin, recommendationId, isParentAsin } = JSON.parse(decodeURIComponent(vineDataParam));
+            const {
+                asin,
+                recommendationId,
+                isParentAsin
+            } = JSON.parse(decodeURIComponent(vineDataParam));
 
             const vineElementTmp = document.createElement('div');
             vineElementTmp.style.display = 'none';
@@ -230,5 +415,7 @@
             console.error('Fehler beim Verarbeiten von vine-data:', error);
         }
     }
+
+    init();
 
 })();
