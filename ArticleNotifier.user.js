@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.4
+// @version      1.5.5
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -125,7 +125,7 @@
                 const description = element.querySelector('.a-truncate-full').innerText.trim();
                 const imageUrl = element.querySelector('img').src;
                 const isParentAsin = element.querySelector('input[data-asin]').getAttribute('data-is-parent-asin') === 'true';
-                const tax = (element.querySelector('input[data-asin]')?.getAttribute('data-tax') || "");
+                const tax = (element.querySelector('input[data-asin]')?.getAttribute('data-tax') || null);
 
                 articleInfos.push({
                     id,
@@ -383,6 +383,7 @@
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
                 <p>ASIN: ${article.asin}</p>
+                <p>Tax: ${article.tax}</p>
                 <p>Kategorie: ${article.kategorie}</p>
                 <p>Zuerst gesehen: ${createdAtFormatted}</p>
                 <p>Zuletzt gesehen: ${lastSeenFormatted}</p>
@@ -465,9 +466,10 @@
                 waitForHtmlElmement('#vvp-product-details-modal--tax-value-string', (selector) => {
 
                     waitForHtmlElementWithContent('#vvp-product-details-modal--tax-value-string', async (elem) => {
-                        if(debug){console.log(`[VF]`,elem.textContent)};
-                        console.log('[VF]', `Tax Weert des Artikels: ${elem.textContent}`);
-                        element.querySelector('input[data-asin]').setAttribute('data-tax', elem.textContent);
+                        const taxWert = parseFloat(elem.textContent.replace('€', '').trim());
+                        if(debug){console.log(`[VF]`,taxWert)};
+                        console.log('[VF]', `Tax Weert des Artikels: ${taxWert}`);
+                        element.querySelector('input[data-asin]').setAttribute('data-tax', taxWert);
 
                         elements.push(element);
                         const category = getCategory(window.location.href);
@@ -502,17 +504,20 @@
         waitForHtmlElmement('.a-popover-header > button', (selector) => {
             selector.addEventListener('click', () => {
                 const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
-                document.querySelector('#vvp-product-details-modal--tax-value-string').textContent = "";
-                popupTaxContainer.textContent = "";
+                document.querySelector(popupTaxContainer).textContent = "";
                 if(debug){console.log(`[VF]`,'Popup Closed')};
             })
         });
 
         waitForHtmlElmement('.a-modal-scroller.a-declarative', (selector) => {
+            const innerDiv = document.querySelector('.a-popover.a-popover-modal.a-declarative.a-popover-modal-fixed-height');
             selector.addEventListener('click', () => {
-                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
-                document.querySelector('#vvp-product-details-modal--tax-value-string').textContent = "";
-                if(debug){console.log(`[VF]`,'Popup Closed')};
+                let isClickInside = innerDiv.contains(event.target);
+                if(!isClickInside){
+                    const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
+                    document.querySelector(popupTaxContainer).textContent = "";
+                    if(debug){console.log(`[VF]`,'Popup Closed')};
+                }
             })
         });
         // End Section
