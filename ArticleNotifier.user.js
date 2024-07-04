@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.5
+// @version      1.5.6
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
-// @author       Domi
+// @author       Domi, Christof
 // @match        https://www.amazon.de/vine/vine-items*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -17,7 +17,7 @@
 (function() {
     'use strict';
 
-    const debug = false;
+    const debug = true;
 
     const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
     const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
@@ -509,6 +509,31 @@
             })
         });
 
+        waitForHtmlElmement('#vvp-product-details-modal--back-btn', (selector) => {
+            selector.addEventListener('click', () => {
+                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
+                document.querySelector(popupTaxContainer).textContent = "";
+                if(debug){console.log(`[VF]`,'Popup Closed')};
+            })
+        });
+
+        waitForHtmlElmement('#vvp-product-details-modal--request-btn', (selector) => {
+            selector.addEventListener('click', () => {
+                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
+                document.querySelector(popupTaxContainer).textContent = "";
+                if(debug){console.log(`[VF]`,'Popup Closed')};
+            })
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' || event.key === 'Esc') {
+                // Aktion ausführen, wenn die Escape-Taste gedrückt wurde
+                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
+                document.querySelector(popupTaxContainer).textContent = "";
+                if(debug){console.log(`[VF]`,'Popup Closed')};
+            }
+        });
+
         waitForHtmlElmement('.a-modal-scroller.a-declarative', (selector) => {
             const innerDiv = document.querySelector('.a-popover.a-popover-modal.a-declarative.a-popover-modal-fixed-height');
             selector.addEventListener('click', () => {
@@ -520,6 +545,9 @@
                 }
             })
         });
+
+        //#vvp-product-details-modal--back-btn
+        //#vvp-product-details-modal--request-btn
         // End Section
 
 
