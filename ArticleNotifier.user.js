@@ -17,7 +17,7 @@
 (function() {
     'use strict';
 
-    const debug = true;
+    const debug = false;
 
     const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
     const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
