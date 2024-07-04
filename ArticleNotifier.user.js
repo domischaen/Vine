@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.6
+// @version      1.5.7
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -462,13 +462,18 @@
         vvpItems.forEach(element => {
             if(debug){console.log(`[VF]`,element)};
             element.querySelector('.vvp-item-tile-content > .vvp-details-btn').addEventListener('click', () => {
+
+                // Delete the Tax Value to detect the correct Value for the next Product
+                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
+                document.querySelector(popupTaxContainer).textContent = "";
+
                 if(debug){console.log(`[VF]`,element)};
                 waitForHtmlElmement('#vvp-product-details-modal--tax-value-string', (selector) => {
 
                     waitForHtmlElementWithContent('#vvp-product-details-modal--tax-value-string', async (elem) => {
                         const taxWert = parseFloat(elem.textContent.replace('€', '').trim());
                         if(debug){console.log(`[VF]`,taxWert)};
-                        console.log('[VF]', `Tax Weert des Artikels: ${taxWert}`);
+                        console.log('[VF]', `Tax Wert des Artikels: ${taxWert}`);
                         element.querySelector('input[data-asin]').setAttribute('data-tax', taxWert);
 
                         elements.push(element);
@@ -481,12 +486,9 @@
                         if (result && result.newArticleIds.length > 0) {
                             updateVvpItemsGrid(newInfos);
                         }
-
                         elements = [];
-
                     })
                 });
-                //a-popover a-popover-modal a-declarative  a-popover-modal-fixed-height
             });
         })
         console.log(vvpItems);
@@ -498,60 +500,9 @@
         startFetchingArticles();
         injectSearchUI();
         duplicatePaginationElement();
-        injectTaxInterception();
-
-        //Section to Reset Tax Details after Closing the Popup
-        waitForHtmlElmement('.a-popover-header > button', (selector) => {
-            selector.addEventListener('click', () => {
-                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
-                document.querySelector(popupTaxContainer).textContent = "";
-                if(debug){console.log(`[VF]`,'Popup Closed')};
-            })
-        });
-
-        waitForHtmlElmement('#vvp-product-details-modal--back-btn', (selector) => {
-            selector.addEventListener('click', () => {
-                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
-                document.querySelector(popupTaxContainer).textContent = "";
-                if(debug){console.log(`[VF]`,'Popup Closed')};
-            })
-        });
-
-        waitForHtmlElmement('#vvp-product-details-modal--request-btn', (selector) => {
-            selector.addEventListener('click', () => {
-                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
-                document.querySelector(popupTaxContainer).textContent = "";
-                if(debug){console.log(`[VF]`,'Popup Closed')};
-            })
-        });
-
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape' || event.key === 'Esc') {
-                // Aktion ausführen, wenn die Escape-Taste gedrückt wurde
-                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
-                document.querySelector(popupTaxContainer).textContent = "";
-                if(debug){console.log(`[VF]`,'Popup Closed')};
-            }
-        });
-
-        waitForHtmlElmement('.a-modal-scroller.a-declarative', (selector) => {
-            const innerDiv = document.querySelector('.a-popover.a-popover-modal.a-declarative.a-popover-modal-fixed-height');
-            selector.addEventListener('click', () => {
-                let isClickInside = innerDiv.contains(event.target);
-                if(!isClickInside){
-                    const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
-                    document.querySelector(popupTaxContainer).textContent = "";
-                    if(debug){console.log(`[VF]`,'Popup Closed')};
-                }
-            })
-        });
-
-        //#vvp-product-details-modal--back-btn
-        //#vvp-product-details-modal--request-btn
-        // End Section
-
-
-
+        if(!window.location.href.includes('queue=potluck')){
+            injectTaxInterception();
+        }
     }
 
     const currentUrl = window.location.href;
