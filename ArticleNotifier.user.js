@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.3
+// @version      1.5.4
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -16,6 +16,8 @@
 
 (function() {
     'use strict';
+
+    const debug = false;
 
     const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
     const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
@@ -123,13 +125,15 @@
                 const description = element.querySelector('.a-truncate-full').innerText.trim();
                 const imageUrl = element.querySelector('img').src;
                 const isParentAsin = element.querySelector('input[data-asin]').getAttribute('data-is-parent-asin') === 'true';
+                const tax = (element.querySelector('input[data-asin]')?.getAttribute('data-tax') || "");
 
                 articleInfos.push({
                     id,
                     asin,
                     description,
                     imageUrl,
-                    isParentAsin
+                    isParentAsin,
+                    tax
                 });
             }
         });
@@ -315,21 +319,21 @@
         resetSearchButton.style.padding = '5px 15px';
 
         searchQueryInput.addEventListener('keydown', async (event) => {
-        if (event.key === 'Enter') {
-        const query = searchQueryInput.value.trim();
-        if (query === '') return;
+            if (event.key === 'Enter') {
+                const query = searchQueryInput.value.trim();
+                if (query === '') return;
 
-        searchResultsContainer.innerHTML = 'Lädt...';
-        try {
-            const response = await fetch(`${searchArticlesUrl}${encodeURIComponent(query)}`);
-            const data = await response.json();
-            displaySearchResults(data.articles);
-        } catch (error) {
-            console.error('Fehler bei der Suche:', error);
-            searchResultsContainer.innerHTML = 'Fehler bei der Suche.';
-        }
-    }
-});
+                searchResultsContainer.innerHTML = 'Lädt...';
+                try {
+                    const response = await fetch(`${searchArticlesUrl}${encodeURIComponent(query)}`);
+                    const data = await response.json();
+                    displaySearchResults(data.articles);
+                } catch (error) {
+                    console.error('Fehler bei der Suche:', error);
+                    searchResultsContainer.innerHTML = 'Fehler bei der Suche.';
+                }
+            }
+        });
 
         searchButton.addEventListener('click', async () => {
             const query = searchQueryInput.value.trim();
@@ -426,6 +430,7 @@
             item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p>${article.description}</p>
+                <p>ID: ${article.tax}</p>
                 <p>ASIN: ${article.asin}</p>
                 <p>ID: ${article.id}</p>
                 <p>Kategorie: ${article.kategorie}</p>
@@ -435,19 +440,55 @@
     }
 
     function duplicatePaginationElement() {
-    const paginationElement = document.querySelector('.a-pagination').cloneNode(true);
-    const targetElement = document.getElementById('vvp-items-grid');
-    if (paginationElement && targetElement) {
-        const paginationContainer = document.createElement('div');
-        paginationContainer.style.display = 'flex';
-        paginationContainer.style.justifyContent = 'center';
-        paginationContainer.style.marginBottom = '20px';
-        paginationContainer.appendChild(paginationElement);
-        targetElement.parentNode.insertBefore(paginationContainer, targetElement);
-    } else {
-        console.error('Pagination element or target element not found');
+        const paginationElement = document.querySelector('.a-pagination').cloneNode(true);
+        const targetElement = document.getElementById('vvp-items-grid');
+        if (paginationElement && targetElement) {
+            const paginationContainer = document.createElement('div');
+            paginationContainer.style.display = 'flex';
+            paginationContainer.style.justifyContent = 'center';
+            paginationContainer.style.marginBottom = '20px';
+            paginationContainer.appendChild(paginationElement);
+            targetElement.parentNode.insertBefore(paginationContainer, targetElement);
+        } else {
+            console.error('Pagination element or target element not found');
+        }
     }
-}
+
+    function injectTaxInterception() {
+        console.log(`[VF]`,`Tax Interception Injectet`);
+        const vvpItems = document.getElementById('vvp-items-grid').querySelectorAll('.vvp-item-tile');
+        let elements = []
+        vvpItems.forEach(element => {
+            if(debug){console.log(`[VF]`,element)};
+            element.querySelector('.vvp-item-tile-content > .vvp-details-btn').addEventListener('click', () => {
+                if(debug){console.log(`[VF]`,element)};
+                waitForHtmlElmement('#vvp-product-details-modal--tax-value-string', (selector) => {
+
+                    waitForHtmlElementWithContent('#vvp-product-details-modal--tax-value-string', async (elem) => {
+                        if(debug){console.log(`[VF]`,elem.textContent)};
+                        console.log('[VF]', `Tax Weert des Artikels: ${elem.textContent}`);
+                        element.querySelector('input[data-asin]').setAttribute('data-tax', elem.textContent);
+
+                        elements.push(element);
+                        const category = getCategory(window.location.href);
+                        let newInfos = extractArticleInfos(elements);
+                        if(debug){console.log('[VF]',newInfos)};
+                        console.log('[VF]',category);
+
+                        const result = await sendArticleInfos(newInfos, category);
+                        if (result && result.newArticleIds.length > 0) {
+                            updateVvpItemsGrid(newInfos);
+                        }
+
+                        elements = [];
+
+                    })
+                });
+                //a-popover a-popover-modal a-declarative  a-popover-modal-fixed-height
+            });
+        })
+        console.log(vvpItems);
+    }
 
 
 
@@ -455,6 +496,29 @@
         startFetchingArticles();
         injectSearchUI();
         duplicatePaginationElement();
+        injectTaxInterception();
+
+        //Section to Reset Tax Details after Closing the Popup
+        waitForHtmlElmement('.a-popover-header > button', (selector) => {
+            selector.addEventListener('click', () => {
+                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
+                document.querySelector('#vvp-product-details-modal--tax-value-string').textContent = "";
+                popupTaxContainer.textContent = "";
+                if(debug){console.log(`[VF]`,'Popup Closed')};
+            })
+        });
+
+        waitForHtmlElmement('.a-modal-scroller.a-declarative', (selector) => {
+            selector.addEventListener('click', () => {
+                const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
+                document.querySelector('#vvp-product-details-modal--tax-value-string').textContent = "";
+                if(debug){console.log(`[VF]`,'Popup Closed')};
+            })
+        });
+        // End Section
+
+
+
     }
 
     const currentUrl = window.location.href;
@@ -494,5 +558,68 @@
     }
 
     init();
+
+    /**
+    * Waits until a HTML Element exists ans fires callback if it is found
+    * @param {string} selector querySelector
+    * @param {function} cb Callback Function
+    * @param {object} [altDocument] Alternativ document root
+    */
+    async function waitForHtmlElmement(selector, cb, altDocument = document) {
+        if (typeof(selector) != 'string') throw new Error('waitForHtmlElement(): selector is not defined or is not type of string');
+        if (typeof(cb) != 'function') throw new Error('waitForHtmlElement(): cb is not defined or is not type of string');
+
+        if (altDocument.querySelector(selector)) {
+            cb(altDocument.querySelector(selector));
+            return;
+        }
+
+        const _observer = new MutationObserver(mutations => {
+            if (altDocument.querySelector(selector)) {
+                _observer.disconnect();
+                cb(altDocument.querySelector(selector));
+                return;
+            }
+        });
+
+        _observer.observe(altDocument.body || altDocument, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    /**
+ * Waits until a HTML Element's textContent is not empty and fires callback if it is found
+ * @param {string} selector querySelector
+ * @param {function} cb Callback Function
+ * @param {object} [altDocument] Alternative document root
+ */
+    async function waitForHtmlElementWithContent(selector, cb, altDocument = document) {
+        if (typeof(selector) !== 'string') throw new Error('waitForHtmlElementWithContent(): selector is not defined or is not type of string');
+        if (typeof(cb) !== 'function') throw new Error('waitForHtmlElementWithContent(): cb is not defined or is not type of function');
+
+        const checkElementContent = () => {
+            const element = altDocument.querySelector(selector);
+            if (element && element.textContent.trim() !== "") {
+                cb(element);
+                return true;
+            }
+            return false;
+        };
+
+        if (checkElementContent()) return;
+
+        const _observer = new MutationObserver(mutations => {
+            if (checkElementContent()) {
+                _observer.disconnect();
+            }
+        });
+
+        _observer.observe(altDocument.body || altDocument, {
+            childList: true,
+            subtree: true
+        });
+    }
+
 
 })();
