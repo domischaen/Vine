@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.1
+// @version      1.5.2
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -239,7 +239,7 @@
                 await checkForNewArticles(isLastChance ? lastChanceUrl : encoreFixedUrl);
                 isLastChance = !isLastChance;
                 await sleep(getRandomInt(5000, 10000));
-                await fetchEncorePage
+                await fetchEncorePage();
                 await sleep(getRandomInt(5000, 10000));
             }
         } catch (error) {
@@ -266,8 +266,6 @@
         style.textContent = `
         .search-container {
             align-items: center;
-            margin-top: 10px;
-            margin-bottom: 20px;
         }
         .search-container input {
             flex: 1;
@@ -278,7 +276,6 @@
             width: 300px;
         }
         .search-container button {
-            padding: 8px 15px;
             font-size: 14px;
             cursor: pointer;
         }
@@ -437,9 +434,27 @@
         });
     }
 
+    function duplicatePaginationElement() {
+    const paginationElement = document.querySelector('.a-pagination').cloneNode(true);
+    const targetElement = document.getElementById('vvp-items-grid');
+    if (paginationElement && targetElement) {
+        const paginationContainer = document.createElement('div');
+        paginationContainer.style.display = 'flex';
+        paginationContainer.style.justifyContent = 'center';
+        paginationContainer.style.marginBottom = '20px';
+        paginationContainer.appendChild(paginationElement);
+        targetElement.parentNode.insertBefore(paginationContainer, targetElement);
+    } else {
+        console.error('Pagination element or target element not found');
+    }
+}
+
+
+
     function init() {
         startFetchingArticles();
         injectSearchUI();
+        duplicatePaginationElement();
     }
 
     const currentUrl = window.location.href;
