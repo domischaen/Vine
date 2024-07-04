@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.0
+// @version      1.5.1
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -25,6 +25,44 @@
     let currentEncorePage = localStorage.getItem('currentEncorePage') || 1;
     let isFetchingEncore = false;
     let isLastChance = true;
+    let isRunning = false;
+
+    const tabId = Math.random().toString(36).substr(2, 9);
+
+    function setActiveTabId(id) {
+        localStorage.setItem('activeTabId', id);
+    }
+
+    function getActiveTabId() {
+        return localStorage.getItem('activeTabId');
+    }
+
+    function checkActiveTab() {
+        const activeTabId = getActiveTabId();
+        if (!activeTabId || activeTabId === tabId) {
+            setActiveTabId(tabId);
+            return true;
+        }
+        return false;
+    }
+
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'activeTabId' && event.newValue !== tabId) {
+            console.log('Ein anderer Tab ist aktiv, Skript wird nicht ausgeführt.');
+            stopFetchingArticles();
+        }
+    });
+
+    window.addEventListener('unload', () => {
+        if (getActiveTabId() === tabId) {
+            localStorage.removeItem('activeTabId');
+        }
+    });
+
+    function stopFetchingArticles() {
+        isRunning = false;
+        console.log('Artikelüberwachung gestoppt.');
+    }
 
     function getCategory(url) {
         if (url.includes('queue=last_chance')) {
@@ -163,6 +201,12 @@
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    function getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
     async function updateEncorePageInfo(page) {
         const pageInfoElement = document.querySelector('.page-info');
         if (pageInfoElement) {
@@ -185,12 +229,17 @@
     }
 
     async function startFetchingArticles() {
+        isRunning = true;
         try {
-            while (true) {
+            while (isRunning) {
+                if (!checkActiveTab()) {
+                    await sleep(5000);
+                    continue;
+                }
                 await checkForNewArticles(isLastChance ? lastChanceUrl : encoreFixedUrl);
                 isLastChance = !isLastChance;
                 await sleep(getRandomInt(5000, 10000));
-                await fetchEncorePage();
+                await fetchEncorePage
                 await sleep(getRandomInt(5000, 10000));
             }
         } catch (error) {
@@ -204,21 +253,18 @@
         const vvpItemsButtonContainer = document.getElementById('vvp-items-button-container');
         if (!vvpItemsButtonContainer) return;
 
-        // Suchleiste
-        const searchContainer = document.createElement('div');
+        const searchContainer = document.createElement('span');
         searchContainer.classList.add('search-container');
 
         searchContainer.innerHTML = `
         <input type="text" id="searchQuery" placeholder="Suche Vine Produkte">
         <button id="searchButton">Suchen</button>
-        <button id="resetSearchButton" style="margin-left: 10px;">Suche zurücksetzen</button>
+        <button id="resetSearchButton" style="margin-left: 5px;">Zurücksetzen</button>
     `;
 
-        // CSS für die Suchleiste
         const style = document.createElement('style');
         style.textContent = `
         .search-container {
-            display: flex;
             align-items: center;
             margin-top: 10px;
             margin-bottom: 20px;
@@ -227,7 +273,9 @@
             flex: 1;
             padding: 8px;
             font-size: 14px;
+            margin-left: 5px;
             margin-right: 5px;
+            width: 300px;
         }
         .search-container button {
             padding: 8px 15px;
@@ -257,12 +305,34 @@
         const searchResultsContainer = document.createElement('div');
         searchResultsContainer.classList.add('search-results-grid');
         vvpItemsButtonContainer.appendChild(searchContainer);
-        vvpItemsButtonContainer.parentNode.insertBefore(searchResultsContainer, vvpItemsButtonContainer.nextSibling);
+        vvpItemsButtonContainer.parentElement.insertAdjacentElement('afterend', searchResultsContainer);
         document.head.appendChild(style);
 
         const searchButton = document.getElementById('searchButton');
         const searchQueryInput = document.getElementById('searchQuery');
         const resetSearchButton = document.getElementById('resetSearchButton');
+
+        searchButton.classList.add('a-button', 'a-button-primary');
+        searchButton.style.padding = '5px 15px';
+        resetSearchButton.classList.add('a-button');
+        resetSearchButton.style.padding = '5px 15px';
+
+        searchQueryInput.addEventListener('keydown', async (event) => {
+        if (event.key === 'Enter') {
+        const query = searchQueryInput.value.trim();
+        if (query === '') return;
+
+        searchResultsContainer.innerHTML = 'Lädt...';
+        try {
+            const response = await fetch(`${searchArticlesUrl}${encodeURIComponent(query)}`);
+            const data = await response.json();
+            displaySearchResults(data.articles);
+        } catch (error) {
+            console.error('Fehler bei der Suche:', error);
+            searchResultsContainer.innerHTML = 'Fehler bei der Suche.';
+        }
+    }
+});
 
         searchButton.addEventListener('click', async () => {
             const query = searchQueryInput.value.trim();
@@ -310,21 +380,19 @@
                 item.classList.add('search-result-item');
                 item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
-                <p>${article.description}</p>
+                <p><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
                 <p>ASIN: ${article.asin}</p>
                 <p>Kategorie: ${article.kategorie}</p>
                 <p>Zuerst gesehen: ${createdAtFormatted}</p>
                 <p>Zuletzt gesehen: ${lastSeenFormatted}</p>
-                <button class="view-details-btn">Artikelseite</button>
                 <button class="view-vine-details-btn">Weitere Details</button>
             `;
 
-                const viewArticleButton = item.querySelector('.view-details-btn');
-                viewArticleButton.addEventListener('click', () => {
-                    window.open(`https://www.amazon.de/dp/${article.asin}`, '_blank');
-                });
-
                 const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
+                viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
+                viewVineDetailsButton.style.padding = '5px 15px';
+                viewVineDetailsButton.style.marginTop = '10px';
+
                 viewVineDetailsButton.addEventListener('click', () => {
                     const vineElementTmp = document.createElement('div');
                     vineElementTmp.style.display = 'none';
@@ -367,12 +435,6 @@
             `;
             vvpItemsGrid.insertBefore(item, vvpItemsGrid.firstChild);
         });
-    }
-
-    function getRandomInt(min, max) {
-        min = Math.ceil(min);
-        max = Math.floor(max);
-        return Math.floor(Math.random() * (max - min)) + min;
     }
 
     function init() {
