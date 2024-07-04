@@ -238,9 +238,9 @@
                 }
                 await checkForNewArticles(isLastChance ? lastChanceUrl : encoreFixedUrl);
                 isLastChance = !isLastChance;
-                await sleep(getRandomInt(5000, 10000));
+                await sleep(getRandomInt(10000, 15000));
                 await fetchEncorePage();
-                await sleep(getRandomInt(5000, 10000));
+                await sleep(getRandomInt(10000, 15000));
             }
         } catch (error) {
             console.error('Fehler beim Starten der Artikelüberwachung:', error);
