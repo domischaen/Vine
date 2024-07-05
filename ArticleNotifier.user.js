@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.7
+// @version      1.5.8
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -17,7 +17,7 @@
 (function() {
     'use strict';
 
-    const debug = false;
+    const debug = true;
 
     const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
     const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
@@ -28,6 +28,8 @@
     let isFetchingEncore = false;
     let isLastChance = true;
     let isRunning = false;
+    let scriptVersion = (GM_info?.script?.version);
+    let favorites = JSON.parse(localStorage.getItem('vf-favorites')) || [];
 
     const tabId = Math.random().toString(36).substr(2, 9);
 
@@ -101,6 +103,7 @@
                 throw new Error('Daten NICHT gesendet.');
             } else {
                 console.log('Daten erfolgreich gesendet.');
+                document.querySelector('.page-info').style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
             }
 
             const contentType = response.headers.get('content-type');
@@ -113,6 +116,7 @@
             }
         } catch (error) {
             console.error('Fehler beim Senden der Artikelinformationen:', error);
+            document.querySelector('.page-info').style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
         }
     }
 
@@ -214,7 +218,7 @@
     async function updateEncorePageInfo(page) {
         const pageInfoElement = document.querySelector('.page-info');
         if (pageInfoElement) {
-            pageInfoElement.textContent = `Aktuelle ZA Seite: ${page}`;
+            pageInfoElement.textContent = `v${scriptVersion} - Aktuelle ZA Seite: ${page}`;
         } else {
             const newPageInfoElement = document.createElement('div');
             newPageInfoElement.classList.add('page-info');
@@ -227,7 +231,7 @@
             newPageInfoElement.style.fontSize = '14px';
             newPageInfoElement.style.borderRadius = '5px';
             newPageInfoElement.style.zIndex = '10000';
-            newPageInfoElement.textContent = `Aktuelle ZA Seite: ${page}`;
+            newPageInfoElement.textContent = `v${scriptVersion} - Aktuelle ZA Seite: ${page}`;
             document.body.appendChild(newPageInfoElement);
         }
     }
@@ -480,7 +484,6 @@
                         const category = getCategory(window.location.href);
                         let newInfos = extractArticleInfos(elements);
                         if(debug){console.log('[VF]',newInfos)};
-                        console.log('[VF]',category);
 
                         const result = await sendArticleInfos(newInfos, category);
                         if (result && result.newArticleIds.length > 0) {
@@ -491,15 +494,246 @@
                 });
             });
         })
-        console.log(vvpItems);
+        if(debug){console.log('[VF]',vvpItems)};
     }
+
+    function addFavSystem() {
+
+        //vvp-items-button--seller
+
+        const vvpItemsButtonContainer = document.getElementById('vvp-items-button-container');
+        if (!vvpItemsButtonContainer) return;
+
+        const favPagebutton = document.createElement('span');
+        favPagebutton.id = 'vvp-items-button--vf-favs';
+        favPagebutton.classList.add('a-button', 'a-button-normal', 'a-button-toggle');
+
+        favPagebutton.innerHTML = `
+        <span class="a-button-inner">
+                <a role="radio" aria-checked="false" class="a-button-text">Favoriten</a>
+        </span>`;
+
+        const targetElement = vvpItemsButtonContainer.querySelector('#vvp-items-button--seller');
+        //vvpItemsButtonContainer.appendChild(favPagebutton);
+        targetElement.parentNode.insertBefore(favPagebutton, targetElement.nextSibling)
+
+        favPagebutton.addEventListener('click', () => {
+            vvpItemsButtonContainer.querySelectorAll('span').forEach((elem) => {
+                elem.classList.remove('a-button-selected');
+            });
+            favPagebutton.classList.add('a-button-selected');
+
+            const itemGridContainer = document.body.querySelector('.a-section.vvp-items-container');
+            itemGridContainer.querySelectorAll('#vvp-browse-nodes-container').forEach((elem) => {elem.remove()})
+            itemGridContainer.querySelectorAll('.a-pagination').forEach((elem) => {elem.parentNode.remove()});
+            const itemGrid = itemGridContainer.querySelector('#vvp-items-grid');
+            itemGrid.innerHTML = '';
+            const productCount = itemGridContainer.querySelector('p');
+            productCount.innerHTML = `Anzeigen von <strong>${favorites.length}</strong> Ergebnissen`
+
+
+            if(favorites.length != 0){
+                favorites.forEach((elem) => {
+                    const productTile = document.createElement('div');
+                    productTile.classList.add('vvp-item-tile');
+                    productTile.setAttribute('data-recommendation-id', elem.id);
+                    productTile.setAttribute('data-img-url', elem.imageUrl);
+
+                    productTile.innerHTML =
+                        `
+                         <div class="vvp-item-tile-content">
+                             <img alt="" src="${elem.imageUrl}">
+                             <div class="vvp-item-product-title-container">
+                                 <a class="a-link-normal" target="_blank" rel="noopener" href="/dp/${elem.asin}" keepapreview="pf_prevImg">
+                                     <span class="a-truncate" data-a-word-break="normal" data-a-max-rows="2" data-a-overflow-marker="&amp;hellip;" style="line-height: 1.3em !important; max-height: 2.6em;" data-a-recalculate="false" data-a-updated="true">
+                                         <span class="a-truncate-full a-offscreen">${elem.description}</span>
+                                         <span class="a-truncate-cut" aria-hidden="true" style="height: 2.6em;">${elem.description}</span>
+                                     </span>
+                                 </a>
+                             </div>
+                             <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
+                                 <span class="a-button-inner"><input data-asin="${elem.asin}" data-is-parent-asin="${elem.isParentAsin}" data-recommendation-id="${elem.id}" data-recommendation-type="VINE_FOR_ALL" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
+                                     <span class="a-button-text" aria-hidden="true" id="a-autoid-0-announce">Weitere Details</span>
+                                 </span>
+                             </span>
+                         </div>
+                     `;
+                    itemGrid.appendChild(productTile);
+                });
+                addFavStar();
+            }else{
+                itemGrid.innerHTML = 'Es sind keine Favoriten vorhanden.';
+            }
+
+        });
+
+        addFavStar();
+
+        function addFavStar(){
+            const vvpItems = document.getElementById('vvp-items-grid').querySelectorAll('.vvp-item-tile');
+            vvpItems.forEach(element => {
+                const asin = element.querySelector('input[data-asin]').getAttribute('data-asin');
+                const fav = document.createElement('div');
+                fav.textContent = `★`;
+                fav.style.display = 'flex';
+                fav.style.float = 'right';
+                fav.style.fontSize = '25px';
+                fav.style.margin = '0';
+                fav.style.height = '0';
+                fav.style.cursor = 'pointer';
+                fav.style.textShadow = 'black -1px 0px, black 0px 1px, black 1px 0px, black 0px -1px';
+                fav.style.color = 'white';
+                favorites.forEach((elem) => {
+                    if(asin === elem.asin){
+                        fav.style.color = '#ffd814';
+                        //element.style.backgroundColor = '#ffd814';
+                    }
+                });
+                element.insertBefore(fav, element.firstChild);
+                let elements = [];
+                fav.addEventListener('click', () => {
+                    if(debug){console.log('[VF]',`Fav Star Clicked`)}
+                    elements.push(element);
+                    const articelInfos = extractArticleInfos(elements)
+                    elements = [];
+                    articelInfos.forEach((elem) => {
+                        if(!favorites.some(item => item.id === elem.id)){
+                            if(debug){'[VF]',console.log(elem)};
+                            favorites.push(elem);
+                            fav.style.color = '#ffd814';
+                        }else{
+                            favorites = favorites.filter(item => item.id !== elem.id);
+                            if(debug){'[VF]',console.log('Fav entfernen')};
+                            fav.style.color = 'white';
+                        }
+                    })
+                    if(debug){'[VF]',console.log(favorites)};
+                    localStorage.setItem('vf-favorites', JSON.stringify(favorites));
+                })
+
+            });
+        }
+
+    }
+
+    function addShareSystem(){
+
+        addShareIcon();
+
+        function addShareIcon(){
+            const vvpItems = document.getElementById('vvp-items-grid').querySelectorAll('.vvp-item-tile');
+            vvpItems.forEach(element => {
+                //const asin = element.querySelector('input[data-asin]').getAttribute('data-asin');
+                const share = document.createElement('div');
+                share.textContent = `🔗`;
+                share.style.display = 'flex';
+                share.style.float = 'left';
+                share.style.fontSize = '15px';
+                share.style.margin = '0';
+                share.style.height = '0';
+                share.style.cursor = 'pointer';
+                //share.style.textShadow = 'black -1px 0px, black 0px 1px, black 1px 0px, black 0px -1px';
+                element.insertBefore(share, element.firstChild);
+                let elements = [];
+                share.addEventListener('click', () => {
+
+                    if(debug){console.log('[VF]',`Share Icon Clicked`)}
+                    elements.push(element);
+                    const articelInfos = extractArticleInfos(elements)
+                    elements = [];
+                    articelInfos.forEach((elem) => {
+                        const newUrl = `${window.location.origin}/vine/vine-items?vine-data=${encodeURIComponent(JSON.stringify({
+                            asin: elem.asin,
+                            isParentAsin: elem.isParentAsin,
+                            recommendationId: elem.id,
+                            tax: elem.tax || '--.--'
+                        }))}`;
+                        const urlParams = new URLSearchParams(window.location.search);
+                        let queueParam = urlParams.get('queue') || 'last_chance';
+                        let pageParam = urlParams.get('page') || '1';
+                        let page = "";
+                        switch(queueParam){
+                            case 'potluck':
+                                queueParam = "Mein FSE"
+                                page = `Seite: ${pageParam}`
+                                break;
+                            case 'last_chance':
+                                queueParam = "Verfügbar für Alle"
+                                page = `Seite: ${pageParam}`
+                                break;
+                            case 'encore':
+                                queueParam = "Zusätzliche Artikel"
+                                page = `Seite: ${pageParam}`
+                                break;
+                            default:
+                                queueParam = ""
+                                page = ``
+                                break;
+                        }
+                        let shareText = `
+${queueParam}
+${page}
+${elem.tax || '--.--€'}
+
+${newUrl}`
+
+                        const cursorPosition = event.target.selectionStart;
+                        const inputRect = event.target.getBoundingClientRect();
+
+                        const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+                        const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+                        let sharePopup = document.createElement('div');
+                        sharePopup.style.position = 'absolute';
+                        sharePopup.style.zIndex = '9999';
+                        sharePopup.style.padding = '5px'
+                        sharePopup.style.top = `${inputRect.top + scrollY}px`;
+                        sharePopup.style.left = `${inputRect.left + scrollX}px`;
+                        sharePopup.style.border = '5px solid black';
+                        sharePopup.style.borderRadius = '100vh';
+                        sharePopup.style.backgroundColor = 'white'
+                        sharePopup.style.transform = 'translate(-50%, -100%)'
+                        sharePopup.style.opacity = '0';
+                        sharePopup.style.transition = "opacity 0.2s ease-in-out";
+
+                        navigator.clipboard.writeText(shareText).then(() => {
+                            sharePopup.innerText = "Text wurde in die Zwischenablage kopiert."
+                        }).catch(err => {
+                            sharePopup.innerText = `Fehler beim Kopieren in die Zwischenablage: ${err}`
+                        });
+
+                        document.body.appendChild(sharePopup);
+
+                        // Timeout 0ms for the next Event Cycle -> Give time to render
+                        setTimeout(()=> {
+                            sharePopup.style.opacity = '1';
+                        }, 0);
+
+                        setTimeout(()=> {
+                            sharePopup.style.opacity = '0';
+                            setTimeout(()=> {
+                                sharePopup.remove();
+                            }, 200);
+                        }, 3500);
+
+                    })
+
+                })
+
+            })
+        }
+    }
+
 
 
 
     function init() {
         startFetchingArticles();
+        updateEncorePageInfo('Startet bald');
         injectSearchUI();
         duplicatePaginationElement();
+        addFavSystem();
+        addShareSystem();
         if(!window.location.href.includes('queue=potluck')){
             injectTaxInterception();
         }
@@ -519,7 +753,7 @@
             } = JSON.parse(decodeURIComponent(vineDataParam));
 
             const vineElementTmp = document.createElement('div');
-            vineElementTmp.style.display = 'none';
+            //vineElementTmp.style.display = 'none';
             vineElementTmp.innerHTML = `
                 <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
                     <span class="a-button-inner">
@@ -533,7 +767,7 @@
             setTimeout(() => {
                 vineElementTmp.querySelector('input').click();
                 setTimeout(() => {
-                    vineElementTmp.remove();
+                    //vineElementTmp.remove();
                 }, 200);
             }, 500);
         } catch (error) {
