@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.7
+// @version      1.5.8
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -140,6 +140,21 @@
 
         console.log('Extrahierte Artikelinfos:', articleInfos);
         return articleInfos;
+    }
+
+    function sendArticlesOnPageLoad() {
+        const currentUrl = window.location.href;
+        const elements = document.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new');
+        const newInfos = extractArticleInfos(Array.from(elements));
+        const category = getCategory(currentUrl);
+
+        if (newInfos.length > 0) {
+            sendArticleInfos(newInfos, category).then(result => {
+                if (result && result.newArticleIds.length > 0) {
+                    updateVvpItemsGrid(newInfos);
+                }
+            });
+        }
     }
 
     async function checkForNewArticles(url) {
@@ -496,7 +511,9 @@
 
 
 
-    function init() {
+    async function init() {
+        sendArticlesOnPageLoad();
+        await sleep(2000);
         startFetchingArticles();
         injectSearchUI();
         duplicatePaginationElement();
