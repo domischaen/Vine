@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.9
+// @version      1.5.10
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -416,13 +416,22 @@
                 viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
                 viewVineDetailsButton.style.padding = '5px 15px';
 
+                let recommendationType;
+                if (article.category === 'vfa') {
+                    recommendationType = 'VENDOR_VINE_FOR_ALL';
+                } else if (article.category === 'za') {
+                    recommendationType = 'VINE_FOR_ALL';
+                } else {
+                    recommendationType = 'VENDOR_TARGETED';
+                }
+
                 viewVineDetailsButton.addEventListener('click', () => {
                     const vineElementTmp = document.createElement('div');
                     vineElementTmp.style.display = 'none';
                     vineElementTmp.innerHTML = `
                     <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
                         <span class="a-button-inner">
-                            <input data-asin="${article.asin}" data-is-parent-asin="${article.isParentAsin}" data-recommendation-id="${article.id}" data-recommendation-type="VENDOR_TARGETED" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
+                            <input data-asin="${article.asin}" data-is-parent-asin="${article.isParentAsin}" data-recommendation-id="${article.id}" data-recommendation-type="${recommendationType}" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
                             <span class="a-button-text" aria-hidden="true" id="a-autoid-0-announce">Weitere Details</span>
                         </span>
                     </span>
