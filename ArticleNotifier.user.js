@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.11
+// @version      1.5.12
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -28,8 +28,14 @@
     let isFetchingEncore = false;
     let isLastChance = true;
     let isRunning = false;
-
+    const TAB_EXPIRATION_TIME = 60 * 1000;
+    let lastActiveTimestamp = localStorage.getItem('lastActiveTimestamp') || 0;
     const tabId = Math.random().toString(36).substr(2, 9);
+
+    function updateActiveTimestamp() {
+        lastActiveTimestamp = Date.now();
+        localStorage.setItem('lastActiveTimestamp', lastActiveTimestamp.toString());
+    }
 
     function setActiveTabId(id) {
         localStorage.setItem('activeTabId', id);
@@ -39,12 +45,25 @@
         return localStorage.getItem('activeTabId');
     }
 
+    function getLastActiveTimestamp() {
+        return parseInt(localStorage.getItem('lastActiveTimestamp')) || 0;
+    }
+
     function checkActiveTab() {
         const activeTabId = getActiveTabId();
+        const lastActiveTimestamp = getLastActiveTimestamp();
+        const currentTimestamp = Date.now();
+
         if (!activeTabId || activeTabId === tabId) {
             setActiveTabId(tabId);
+            updateActiveTimestamp();
+            return true;
+        } else if (currentTimestamp - lastActiveTimestamp > TAB_EXPIRATION_TIME) {
+            setActiveTabId(tabId);
+            updateActiveTimestamp();
             return true;
         }
+
         return false;
     }
 
@@ -251,6 +270,7 @@
                     await sleep(5000);
                     continue;
                 }
+                updateActiveTimestamp();
                 console.log(`Starte checkForNewArticles..`);
                 await checkForNewArticles(isLastChance ? lastChanceUrl : encoreFixedUrl);
                 isLastChance = !isLastChance;
@@ -415,17 +435,16 @@
                 const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
                 viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
                 viewVineDetailsButton.style.padding = '5px 15px';
-
-                let recommendationType;
-                if (article.category === 'vfa') {
-                    recommendationType = 'VENDOR_VINE_FOR_ALL';
-                } else if (article.category === 'za') {
-                    recommendationType = 'VINE_FOR_ALL';
-                } else {
-                    recommendationType = 'VENDOR_TARGETED';
-                }
-
+    
                 viewVineDetailsButton.addEventListener('click', () => {
+                    let recommendationType;
+                    if (article.kategorie === 'vfa') {
+                        recommendationType = 'VENDOR_VINE_FOR_ALL';
+                    } else if (article.kategorie === 'za') {
+                        recommendationType = 'VINE_FOR_ALL';
+                    } else {
+                        recommendationType = 'VENDOR_TARGETED';
+                    }
                     const vineElementTmp = document.createElement('div');
                     vineElementTmp.style.display = 'none';
                     vineElementTmp.innerHTML = `
@@ -547,15 +566,25 @@
             const {
                 asin,
                 recommendationId,
-                isParentAsin
+                isParentAsin,
+                kategorie
             } = JSON.parse(decodeURIComponent(vineDataParam));
+
+            let recommendationType;
+             if (kategorie === 'vfa') {
+                 recommendationType = 'VENDOR_VINE_FOR_ALL';
+             } else if (kategorie === 'za') {
+                  recommendationType = 'VINE_FOR_ALL';
+             } else {
+                 recommendationType = 'VENDOR_TARGETED';
+            }
 
             const vineElementTmp = document.createElement('div');
             vineElementTmp.style.display = 'none';
             vineElementTmp.innerHTML = `
                 <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
                     <span class="a-button-inner">
-                        <input data-asin="${asin}" data-is-parent-asin="${isParentAsin}" data-recommendation-id="${recommendationId}" data-recommendation-type="VENDOR_TARGETED" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
+                        <input data-asin="${asin}" data-is-parent-asin="${isParentAsin}" data-recommendation-id="${recommendationId}" data-recommendation-type="recommendationType" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
                         <span class="a-button-text" aria-hidden="true" id="a-autoid-0-announce">Weitere Details</span>
                     </span>
                 </span>
