@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.8
+// @version      1.5.9
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -48,23 +48,19 @@
         return false;
     }
 
-    window.addEventListener('storage', (event) => {
-        if (event.key === 'activeTabId' && event.newValue !== tabId) {
-            console.log('Ein anderer Tab ist aktiv, Skript wird nicht ausgeführt.');
-            stopFetchingArticles();
-        }
-    });
-
+ 
     window.addEventListener('unload', () => {
         if (getActiveTabId() === tabId) {
             localStorage.removeItem('activeTabId');
         }
     });
 
-    function stopFetchingArticles() {
-        isRunning = false;
-        console.log('Artikelüberwachung gestoppt.');
-    }
+    window.addEventListener('beforeunload', () => {
+        if (getActiveTabId() === tabId) {
+            localStorage.removeItem('activeTabId');
+            console.log('Aktiver Tab wird geschlossen, activeTabId entfernt.');
+        }
+    });
 
     function getCategory(url) {
         if (url.includes('queue=last_chance')) {
@@ -248,16 +244,21 @@
     }
 
     async function startFetchingArticles() {
-        isRunning = true;
         try {
-            while (isRunning) {
+            while (true) {
+                if (!checkActiveTab()) {
+                    console.log(`Tab nicht aktiv..`);
+                    await sleep(5000);
+                    continue;
+                }
+                console.log(`Starte checkForNewArticles..`);
+                await checkForNewArticles(isLastChance ? lastChanceUrl : encoreFixedUrl);
+                isLastChance = !isLastChance;
+                await sleep(getRandomInt(10000, 15000));
                 if (!checkActiveTab()) {
                     await sleep(5000);
                     continue;
                 }
-                await checkForNewArticles(isLastChance ? lastChanceUrl : encoreFixedUrl);
-                isLastChance = !isLastChance;
-                await sleep(getRandomInt(10000, 15000));
                 await fetchEncorePage();
                 await sleep(getRandomInt(10000, 15000));
             }
@@ -284,39 +285,45 @@
         const style = document.createElement('style');
         style.textContent = `
         .search-container {
-            align-items: center;
-        }
-        .search-container input {
-            flex: 1;
-            padding: 8px;
-            font-size: 14px;
-            margin-left: 5px;
-            margin-right: 5px;
-            width: 300px;
-        }
-        .search-container button {
-            font-size: 14px;
-            cursor: pointer;
-        }
-        .search-results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            clear: both; /* Verhindert das Verschieben neben andere Elemente */
-        }
-        .search-result-item {
-            border: 1px solid #ccc;
-            padding: 10px;
-            border-radius: 5px;
-            overflow: hidden; /* Verhindert, dass Inhalt außerhalb des Rahmens sichtbar wird */
-        }
-        .search-result-item img {
-            max-width: 100%;
-            height: auto;
-        }
-    `;
+                align-items: center;
+            }
+            .search-container input {
+                flex: 1;
+                padding: 8px;
+                font-size: 14px;
+                margin-left: 5px;
+                margin-right: 5px;
+                width: 300px;
+            }
+            .search-container button {
+                font-size: 14px;
+                cursor: pointer;
+            }
+            .search-results-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 20px;
+                margin-top: 20px;
+                margin-bottom: 20px;
+                clear: both; /* Verhindert das Verschieben neben andere Elemente */
+                text-align: center;
+            }
+            .search-result-item {
+                border: 1px solid #ccc;
+                padding: 10px;
+                border-radius: 5px;
+                overflow: hidden; /* Verhindert, dass Inhalt außerhalb des Rahmens sichtbar wird */
+            }
+            .search-result-item img {
+                max-width: 100%;
+                height: auto;
+                margin-bottom: 14px;
+            }
+            .search-result-item .title {
+              height: 6em;
+              overflow: hidden;
+            }
+        `;
 
         const searchResultsContainer = document.createElement('div');
         searchResultsContainer.classList.add('search-results-grid');
@@ -396,19 +403,18 @@
                 item.classList.add('search-result-item');
                 item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
-                <p><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
-                <p>ASIN: ${article.asin}</p>
-                <p>Tax: ${article.tax}</p>
-                <p>Kategorie: ${article.kategorie}</p>
-                <p>Zuerst gesehen: ${createdAtFormatted}</p>
-                <p>Zuletzt gesehen: ${lastSeenFormatted}</p>
+                <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
+                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax ? article.tax+' €' : '-'}</span></p>
+                <p>
+                  <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
+                  <span title="Zuletzt gesehen">👁 ${lastSeenFormatted}</span>
+                </p>
                 <button class="view-vine-details-btn">Weitere Details</button>
             `;
 
                 const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
                 viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
                 viewVineDetailsButton.style.padding = '5px 15px';
-                viewVineDetailsButton.style.marginTop = '10px';
 
                 viewVineDetailsButton.addEventListener('click', () => {
                     const vineElementTmp = document.createElement('div');
@@ -512,14 +518,15 @@
 
 
     async function init() {
+        setActiveTabId(tabId);
         sendArticlesOnPageLoad();
-        await sleep(2000);
-        startFetchingArticles();
         injectSearchUI();
-        duplicatePaginationElement();
         if(!window.location.href.includes('queue=potluck')){
             injectTaxInterception();
+            duplicatePaginationElement();
         }
+        await sleep(2000);
+        startFetchingArticles();
     }
 
     const currentUrl = window.location.href;
