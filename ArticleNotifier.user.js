@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.14
+// @version      1.5.15
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -321,7 +321,7 @@
                 cursor: pointer;
             }
             .search-results-grid {
-                display: grid;
+                display: none;
                 grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
                 gap: 20px;
                 margin-top: 20px;
@@ -395,6 +395,7 @@
 
         resetSearchButton.addEventListener('click', () => {
             searchQueryInput.value = '';
+            searchResultsContainer.style.display = 'none';
             searchResultsContainer.innerHTML = '';
         });
 
@@ -416,6 +417,7 @@
                 return;
             }
 
+            searchResultsContainer.style.display = 'grid'
             searchResultsContainer.innerHTML = '';
             articles.forEach(article => {
                 const createdAtFormatted = formatTimestamp(article.createdAt);
