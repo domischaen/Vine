@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.17
+// @version      1.5.18
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -1012,10 +1012,8 @@ window.fetch = async (...args) => {
         checkTokenAndPrompt();
 		sendArticlesOnPageLoad();
 		injectSearchUI();
-		if (!window.location.href.includes('queue=potluck')) {
-			injectTaxInterception();
-			duplicatePaginationElement();
-		}
+		injectTaxInterception();
+		duplicatePaginationElement();
 		await sleep(2000);
 		startFetchingArticles();
 	}
