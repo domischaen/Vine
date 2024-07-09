@@ -19,7 +19,7 @@
 
 	const debug = false;
 	const vfToken = localStorage.getItem('vf-token');
-	const sendArticlesUrl = 'https://vinefuckers.de/api/articles2';
+	const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
 	const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
 	const lastChanceUrl = 'https://www.amazon.de/vine/vine-items?queue=last_chance';
 	const encoreFixedUrl = 'https://www.amazon.de/vine/vine-items?queue=encore&pn=340846031';
