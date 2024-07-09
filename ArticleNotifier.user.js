@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.18
+// @version      1.5.19
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -19,7 +19,7 @@
 
 	const debug = false;
 	const vfToken = localStorage.getItem('vf-token');
-	const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
+	const sendArticlesUrl = 'https://vinefuckers.de/api/articles2';
 	const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
 	const lastChanceUrl = 'https://www.amazon.de/vine/vine-items?queue=last_chance';
 	const encoreFixedUrl = 'https://www.amazon.de/vine/vine-items?queue=encore&pn=340846031';
@@ -813,8 +813,11 @@
 						if (debug) {
 							console.log('[VF]', newInfos)
 						};
-						console.log('[VF]', category);
-
+						newInfos.forEach(info => {
+                            console.log(info.id);
+                            info.id = replaceUserId(info.id);
+                            console.log(info.id);
+                        });
 						const result = await sendArticleInfos(newInfos, category);
 						if (result && result.newArticleIds.length > 0) {
 							updateVvpItemsGrid(newInfos);
@@ -1006,8 +1009,6 @@ window.fetch = async (...args) => {
 
 	initInjectScript();
 
-
-
 	async function init() {
         checkTokenAndPrompt();
 		sendArticlesOnPageLoad();
@@ -1127,6 +1128,5 @@ window.fetch = async (...args) => {
 			subtree: true
 		});
 	}
-
 
 })();
