@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.20
+// @version      1.5.21
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -380,13 +380,17 @@
 			articles.forEach(article => {
 				article.id = replacePlacerholderWithUserId(article.id);
 				const createdAtFormatted = formatTimestamp(article.createdAt);
+                const lastSeenFormatted = formatTimestamp(article.lastSeen);
 				const item = document.createElement('div');
 				item.classList.add('search-result-item');
 				item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
                 <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax ? article.tax + ' €' : '-'}</span></p>
-                <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
+                <p>
+                  <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
+                  <span title="Zuletzt gesehen">👁 ${lastSeenFormatted}</span>
+                </p>
                 <button class="view-vine-details-btn">Weitere Details</button>
             `;
 
@@ -473,13 +477,17 @@
 			resultsGrid.innerHTML = '';
 			articles.forEach(article => {
 				const createdAtFormatted = formatTimestamp(article.createdAt);
+                const lastSeenFormatted = formatTimestamp(article.lastSeen);
 				const item = document.createElement('div');
 				item.classList.add('search-result-item');
 				item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
                 <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie}</span> | <span title="Steuerwert">Tax: ${article.tax ? article.tax + ' €' : '-'}</span></p>
-                <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
+                <p>
+                  <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
+                  <span title="Zuletzt gesehen">👁 ${lastSeenFormatted}</span>
+                </p>
                 <button class="view-vine-details-btn">Weitere Details</button>
             `;
 
@@ -1009,6 +1017,8 @@ window.fetch = async (...args) => {
 
 	initInjectScript();
 
+
+
 	async function init() {
         checkTokenAndPrompt();
 		sendArticlesOnPageLoad();
@@ -1128,5 +1138,6 @@ window.fetch = async (...args) => {
 			subtree: true
 		});
 	}
+
 
 })();
