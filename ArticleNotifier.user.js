@@ -378,10 +378,9 @@
 
 			resultsGrid.innerHTML = '';
 			articles.forEach(article => {
-                console.log(article.tax);
 				article.id = replacePlacerholderWithUserId(article.id);
 				const createdAtFormatted = formatTimestamp(article.createdAt);
-                const lastSeenFormatted = formatTimestamp(article.lastSeen);
+                		const lastSeenFormatted = formatTimestamp(article.lastSeen);
 				const item = document.createElement('div');
 				item.classList.add('search-result-item');
 				item.innerHTML = `
