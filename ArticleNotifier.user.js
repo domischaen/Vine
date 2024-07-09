@@ -18,7 +18,7 @@
 	'use strict';
 
 	const debug = false;
-
+	const vfToken = localStorage.getItem('vf-token');
 	const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
 	const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
 	const lastChanceUrl = 'https://www.amazon.de/vine/vine-items?queue=last_chance';
@@ -32,6 +32,18 @@
 	let lastActiveTimestamp = localStorage.getItem('lastActiveTimestamp') || 0;
 	const tabId = Math.random().toString(36).substr(2, 9);
 	const accountId = document.querySelector('#vvp-tax-interview-form input[name="AccountId"]').value;
+
+    function checkTokenAndPrompt() {
+    if (!vfToken) {
+        const tokenInput = prompt('Bitte geben Sie den Token ein:');
+        if (tokenInput) {
+            localStorage.setItem('vf-token', tokenInput);
+            alert('Token erfolgreich gespeichert!');
+        } else {
+            alert('Kein Token eingegeben. Funktion wird nicht aktiviert.');
+        }
+    }
+}
 
 	function updateActiveTimestamp() {
 		lastActiveTimestamp = Date.now();
@@ -347,7 +359,7 @@
 
 	async function loadFseArticles(resultsGrid) {
 		try {
-			const response = await fetch('https://vinefuckers.de/api/articles/fse');
+			const response = await fetch('https://vinefuckers.de/api/articles/fse?token=' + vfToken);
 			if (!response.ok) {
 				throw new Error('Fehler beim Laden der FSE-Artikel');
 			}
@@ -441,7 +453,7 @@
 
 	async function loadLatestProducts(resultsGrid) {
 		try {
-			const response = await fetch('https://vinefuckers.de/api/articles/latest');
+			const response = await fetch('https://vinefuckers.de/api/articles/latest?token=' + vfToken);
 			if (!response.ok) {
 				throw new Error('Fehler beim Laden der neuesten Produkte');
 			}
@@ -997,6 +1009,7 @@ window.fetch = async (...args) => {
 
 
 	async function init() {
+        checkTokenAndPrompt();
 		sendArticlesOnPageLoad();
 		injectSearchUI();
 		if (!window.location.href.includes('queue=potluck')) {
