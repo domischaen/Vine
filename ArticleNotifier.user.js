@@ -389,7 +389,7 @@
             item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
-                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined ? article.tax + ' €' : '-'}</span></p>
+                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined && article.tax !== null ? article.tax + ' €' : '-'}</span></p>
                 <p>
                   <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
                   <span title="Zuletzt gesehen">👁 ${lastSeenFormatted}</span>
@@ -486,7 +486,7 @@
             item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
-                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined ? article.tax + ' €' : '-'}</span></p>
+                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined && article.tax !== null ? article.tax + ' €' : '-'}</span></p>
                 <p>
                   <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
                   <span title="Zuletzt gesehen">👁 ${lastSeenFormatted}</span>
@@ -710,7 +710,7 @@
             item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
-                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined ? article.tax + ' €' : '-'}</span></p>
+                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined && article.tax !== null ? article.tax + ' €' : '-'}</span></p>
                 <p>
                   <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
                   <span title="Zuletzt gesehen">👁 ${lastSeenFormatted}</span>
