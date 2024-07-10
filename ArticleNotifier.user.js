@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.22
+// @version      1.5.23
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
-// @author       Domi, Christof
+// @author       Domi, Christof, DiscoJay
 // @match        https://www.amazon.de/vine/vine-items*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -14,376 +14,379 @@
 // @grant        unsafeWindow
 // ==/UserScript==
 
-(function() {
-	'use strict';
+(function () {
+   'use strict';
 
-	const debug = false;
-	const vfToken = localStorage.getItem('vf-token');
-	const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
-	const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
-	const lastChanceUrl = 'https://www.amazon.de/vine/vine-items?queue=last_chance';
-	const encoreFixedUrl = 'https://www.amazon.de/vine/vine-items?queue=encore&pn=340846031';
-	const encoreBaseUrl = 'https://www.amazon.de/vine/vine-items?queue=encore&pn=&cn=&page=';
-	let currentEncorePage = localStorage.getItem('currentEncorePage') || 1;
-	let isFetchingEncore = false;
-	let isLastChance = true;
-	let isRunning = false;
-	const TAB_EXPIRATION_TIME = 60 * 1000;
-	let lastActiveTimestamp = localStorage.getItem('lastActiveTimestamp') || 0;
-	const tabId = Math.random().toString(36).substr(2, 9);
-	const accountId = document.querySelector('#vvp-tax-interview-form input[name="AccountId"]').value;
+   const debug = false;
+   const vfToken = localStorage.getItem('vf-token');
+   const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
+   const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
+   const lastChanceUrl = 'https://www.amazon.de/vine/vine-items?queue=last_chance';
+   const encoreFixedUrl = 'https://www.amazon.de/vine/vine-items?queue=encore&pn=340846031';
+   const encoreBaseUrl = 'https://www.amazon.de/vine/vine-items?queue=encore&pn=&cn=&page=';
+   let currentEncorePage = localStorage.getItem('currentEncorePage') || 1;
+   let isFetchingEncore = false;
+   let isLastChance = true;
+   let isRunning = false;
+   const TAB_EXPIRATION_TIME = 60 * 1000;
+   let lastActiveTimestamp = localStorage.getItem('lastActiveTimestamp') || 0;
+   const tabId = Math.random().toString(36).substr(2, 9);
+   const accountId = document.querySelector('#vvp-tax-interview-form input[name="AccountId"]').value;
 
-    function checkTokenAndPrompt() {
-    if (!vfToken) {
-        const tokenInput = prompt('Bitte geben Sie den Token ein:');
-        if (tokenInput) {
+   function checkTokenAndPrompt() {
+      if (!vfToken) {
+         const tokenInput = prompt('Bitte geben Sie den Token ein:');
+         if (tokenInput) {
             localStorage.setItem('vf-token', tokenInput);
             alert('Token erfolgreich gespeichert!');
-        } else {
+         } else {
             alert('Kein Token eingegeben. Funktion wird nicht aktiviert.');
-        }
-    }
-}
+         }
+      }
+   }
 
-	function updateActiveTimestamp() {
-		lastActiveTimestamp = Date.now();
-		localStorage.setItem('lastActiveTimestamp', lastActiveTimestamp.toString());
-	}
+   function updateActiveTimestamp() {
+      lastActiveTimestamp = Date.now();
+      localStorage.setItem('lastActiveTimestamp', lastActiveTimestamp.toString());
+   }
 
-	function setActiveTabId(id) {
-		localStorage.setItem('activeTabId', id);
-	}
+   function setActiveTabId(id) {
+      localStorage.setItem('activeTabId', id);
+   }
 
-	function getActiveTabId() {
-		return localStorage.getItem('activeTabId');
-	}
+   function getActiveTabId() {
+      return localStorage.getItem('activeTabId');
+   }
 
-	function getLastActiveTimestamp() {
-		return parseInt(localStorage.getItem('lastActiveTimestamp')) || 0;
-	}
+   function getLastActiveTimestamp() {
+      return parseInt(localStorage.getItem('lastActiveTimestamp')) || 0;
+   }
 
-	function checkActiveTab() {
-		const activeTabId = getActiveTabId();
-		const lastActiveTimestamp = getLastActiveTimestamp();
-		const currentTimestamp = Date.now();
+   function checkActiveTab() {
+      const activeTabId = getActiveTabId();
+      const lastActiveTimestamp = getLastActiveTimestamp();
+      const currentTimestamp = Date.now();
 
-		if (!activeTabId || activeTabId === tabId) {
-			setActiveTabId(tabId);
-			updateActiveTimestamp();
-			return true;
-		} else if (currentTimestamp - lastActiveTimestamp > TAB_EXPIRATION_TIME) {
-			setActiveTabId(tabId);
-			updateActiveTimestamp();
-			return true;
-		}
+      if (!activeTabId || activeTabId === tabId) {
+         setActiveTabId(tabId);
+         updateActiveTimestamp();
+         return true;
+      } else if (currentTimestamp - lastActiveTimestamp > TAB_EXPIRATION_TIME) {
+         setActiveTabId(tabId);
+         updateActiveTimestamp();
+         return true;
+      }
 
-		return false;
-	}
+      return false;
+   }
 
-	function formatTimestamp(timestamp) {
-		const date = new Date(timestamp);
-		const day = date.getDate().toString().padStart(2, '0');
-		const month = (date.getMonth() + 1).toString().padStart(2, '0');
-		const year = date.getFullYear();
-		const hours = date.getHours().toString().padStart(2, '0');
-		const minutes = date.getMinutes().toString().padStart(2, '0');
-		const seconds = date.getSeconds().toString().padStart(2, '0');
+   function formatTimestamp(timestamp) {
+      const date = new Date(timestamp);
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const seconds = date.getSeconds().toString().padStart(2, '0');
 
-		return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
-	}
+      return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+   }
 
 
-	window.addEventListener('unload', () => {
-		if (getActiveTabId() === tabId) {
-			localStorage.removeItem('activeTabId');
-		}
-	});
+   window.addEventListener('unload', () => {
+      if (getActiveTabId() === tabId) {
+         localStorage.removeItem('activeTabId');
+      }
+   });
 
-	window.addEventListener('beforeunload', () => {
-		if (getActiveTabId() === tabId) {
-			localStorage.removeItem('activeTabId');
-			console.log('Aktiver Tab wird geschlossen, activeTabId entfernt.');
-		}
-	});
+   window.addEventListener('beforeunload', () => {
+      if (getActiveTabId() === tabId) {
+         localStorage.removeItem('activeTabId');
+         console.log('Aktiver Tab wird geschlossen, activeTabId entfernt.');
+      }
+   });
 
-	function getCategory(url) {
-		if (url.includes('queue=last_chance')) {
-			return 'vfa';
-		} else if (url.includes('queue=encore')) {
-			if (url.includes('pn=340846031')) {
-				return 'lebensmittel';
-			} else {
-				return 'za';
-			}
-		} else if (url.includes('queue=potluck')) {
-			return 'fse'
-		} else {
-			return null;
-		}
-	}
+   function getCategory(url) {
+      if (url.includes('queue=last_chance')) {
+         return 'vfa';
+      } else if (url.includes('queue=encore')) {
+         if (url.includes('pn=340846031')) {
+            return 'lebensmittel';
+         } else {
+            return 'za';
+         }
+      } else if (url.includes('queue=potluck')) {
+         return 'fse'
+      } else {
+         return null;
+      }
+   }
 
-	async function sendArticleInfos(articleInfos, category) {
-		const articlesWithCategory = articleInfos.map(article => ({
-			...article,
-			kategorie: category,
-			isParentAsin: article.isParentAsin
-		}));
+   async function sendArticleInfos(articleInfos, category) {
+      const articlesWithCategory = articleInfos.map(article => ({
+         ...article,
+         kategorie: category,
+         isParentAsin: article.isParentAsin
+      }));
 
-		try {
-			const response = await fetch(sendArticlesUrl, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					articles: articlesWithCategory
-				})
-			});
+      try {
+         const response = await fetch(sendArticlesUrl, {
+            method: 'POST',
+            headers: {
+               'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+               articles: articlesWithCategory
+            })
+         });
 
-			if (!response.ok) {
-				throw new Error('Daten NICHT gesendet.');
-			} else {
-				console.log('Daten erfolgreich gesendet.');
-			}
+         if (!response.ok) {
+            throw new Error('Daten NICHT gesendet.');
+         } else {
+            console.log('Daten erfolgreich gesendet.');
+         }
 
-			const contentType = response.headers.get('content-type');
-			if (contentType && contentType.includes('application/json')) {
-				const data = await response.json();
-				return data;
-			} else {
-				console.warn('Antwort ist kein JSON:', await response.text());
-				return null;
-			}
-		} catch (error) {
-			console.error('Fehler beim Senden der Artikelinformationen:', error);
-		}
-	}
+         const contentType = response.headers.get('content-type');
+         if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            return data;
+         } else {
+            console.warn('Antwort ist kein JSON:', await response.text());
+            return null;
+         }
+      } catch (error) {
+         console.error('Fehler beim Senden der Artikelinformationen:', error);
+      }
+   }
 
-	function extractArticleInfos(elements) {
-		let articleInfos = [];
-		elements.forEach(element => {
-			const id = element.getAttribute('data-recommendation-id');
-			if (id) {
-				const asin = element.querySelector('input[data-asin]').getAttribute('data-asin');
-				const description = element.querySelector('.a-truncate-full').innerText.trim();
-				const imageUrl = element.querySelector('img').src;
-				const isParentAsin = element.querySelector('input[data-asin]').getAttribute('data-is-parent-asin') === 'true';
-				const tax = (element.querySelector('input[data-asin]')?.getAttribute('data-tax') || null);
+   function extractArticleInfos(elements) {
+      let articleInfos = [];
+      elements.forEach(element => {
+         const id = element.getAttribute('data-recommendation-id');
+         if (id) {
+            const asin = element.querySelector('input[data-asin]').getAttribute('data-asin');
+            const description = element.querySelector('.a-truncate-full').innerText.trim();
+            const imageUrl = element.querySelector('img').src;
+            const isParentAsin = element.querySelector('input[data-asin]').getAttribute('data-is-parent-asin') === 'true';
+            const tax = (element.querySelector('input[data-asin]')?.getAttribute('data-tax') || null);
 
-				articleInfos.push({
-					id,
-					asin,
-					description,
-					imageUrl,
-					isParentAsin,
-					tax
-				});
-			}
-		});
+            articleInfos.push({
+               id,
+               asin,
+               description,
+               imageUrl,
+               isParentAsin,
+               tax
+            });
+         }
+      });
 
-		console.log('Extrahierte Artikelinfos:', articleInfos);
-		return articleInfos;
-	}
+      console.log('Extrahierte Artikelinfos:', articleInfos);
+      return articleInfos;
+   }
 
-	function replaceUserId(input) {
-		const parts = input.split('#');
-		if (parts.length >= 4) {
-			return parts.slice(0, 2).join('#') + '#USERID#' + parts.slice(3).join('#');
-		}
-		return input;
-	}
+   function replaceUserId(input) {
+      const parts = input.split('#');
+      if (parts.length >= 4) {
+         return parts.slice(0, 2).join('#') + '#USERID#' + parts.slice(3).join('#');
+      }
+      return input;
+   }
 
-	function replacePlacerholderWithUserId(input) {
-		return input.replace('USERID', accountId);
-	}
+   function replacePlacerholderWithUserId(input) {
+      return input.replace('USERID', accountId);
+   }
 
-	function sendArticlesOnPageLoad() {
-		const currentUrl = window.location.href;
-		const elements = document.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new');
-		const newInfos = extractArticleInfos(Array.from(elements));
-		const category = getCategory(currentUrl);
+   function sendArticlesOnPageLoad() {
+      const currentUrl = window.location.href;
+      const elements = document.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new');
 
-		if (newInfos.length > 0) {
-			if (category == 'fse') {
-				newInfos.forEach(info => {
-					info.id = replaceUserId(info.id);
-				});
-			}
-			sendArticleInfos(newInfos, category).then(result => {
-				if (result && result.newArticleIds.length > 0) {
-					updateVvpItemsGrid(newInfos);
-				}
-			});
-		}
-	}
+      if (elements.length > 0) {
+         const newInfos = extractArticleInfos(Array.from(elements));
+         const category = getCategory(currentUrl);
 
-	async function checkForNewArticles(url) {
-		console.log(`Überprüfe neue Artikel auf ${url}...`);
-		try {
-			const response = await fetch(url);
-			const text = await response.text();
-			const parser = new DOMParser();
-			const doc = parser.parseFromString(text, 'text/html');
-			const elements = doc.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new');
-			const newInfos = extractArticleInfos(Array.from(elements));
-			const category = getCategory(url);
+         if (newInfos.length > 0) {
+            if (category == 'fse') {
+               newInfos.forEach(info => {
+                  info.id = replaceUserId(info.id);
+               });
+            }
+            sendArticleInfos(newInfos, category).then(result => {
+               if (result && result.newArticleIds.length > 0) {
+                  updateVvpItemsGrid(newInfos);
+               }
+            });
+         }
+      }
+   }
 
-			if (newInfos.length > 0) {
-				const result = await sendArticleInfos(newInfos, category);
-				if (result && result.newArticleIds.length > 0) {
-					updateVvpItemsGrid(newInfos);
-				}
-			}
-		} catch (error) {
-			console.error('Fehler beim Überprüfen neuer Artikel:', error);
-		}
-	}
+   async function checkForNewArticles(url) {
+      console.log(`Überprüfe neue Artikel auf ${url}...`);
+      try {
+         const response = await fetch(url);
+         const text = await response.text();
+         const parser = new DOMParser();
+         const doc = parser.parseFromString(text, 'text/html');
+         const elements = doc.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new');
+         const newInfos = extractArticleInfos(Array.from(elements));
+         const category = getCategory(url);
 
-	async function fetchEncorePage() {
-		console.log(`Fetching encore page ${currentEncorePage}...`);
-		updateEncorePageInfo(currentEncorePage);
-		try {
-			if (isFetchingEncore) return;
-			isFetchingEncore = true;
+         if (newInfos.length > 0) {
+            const result = await sendArticleInfos(newInfos, category);
+            if (result && result.newArticleIds.length > 0) {
+               updateVvpItemsGrid(newInfos);
+            }
+         }
+      } catch (error) {
+         console.error('Fehler beim Überprüfen neuer Artikel:', error);
+      }
+   }
 
-			const response = await fetch(`${encoreBaseUrl}${currentEncorePage}`);
-			const text = await response.text();
-			const parser = new DOMParser();
-			const doc = parser.parseFromString(text, 'text/html');
-			const elements = doc.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new');
-			const newInfos = extractArticleInfos(Array.from(elements));
-			const category = getCategory(`${encoreBaseUrl}${currentEncorePage}`);
+   async function fetchEncorePage() {
+      console.log(`Fetching encore page ${currentEncorePage}...`);
+      updateEncorePageInfo(currentEncorePage);
+      try {
+         if (isFetchingEncore) return;
+         isFetchingEncore = true;
 
-			if (newInfos.length > 0) {
-				const result = await sendArticleInfos(newInfos, category);
-				if (result && result.newArticleIds.length > 0) {
-					updateVvpItemsGrid(newInfos);
-				}
-			}
+         const response = await fetch(`${encoreBaseUrl}${currentEncorePage}`);
+         const text = await response.text();
+         const parser = new DOMParser();
+         const doc = parser.parseFromString(text, 'text/html');
+         const elements = doc.querySelectorAll('.vvp-item-tile, .vvp-item-tile.vine-element-new');
+         const newInfos = extractArticleInfos(Array.from(elements));
+         const category = getCategory(`${encoreBaseUrl}${currentEncorePage}`);
 
-			const nextPageButton = doc.querySelector('.a-last');
-			if (nextPageButton && nextPageButton.classList.contains('a-disabled')) {
-				currentEncorePage = 1;
-			} else {
-				currentEncorePage++;
-			}
+         if (newInfos.length > 0) {
+            const result = await sendArticleInfos(newInfos, category);
+            if (result && result.newArticleIds.length > 0) {
+               updateVvpItemsGrid(newInfos);
+            }
+         }
 
-			localStorage.setItem('currentEncorePage', currentEncorePage);
-		} catch (error) {
-			console.error('Fehler beim Abrufen der Encore-Seite:', error);
-		} finally {
-			isFetchingEncore = false;
-		}
-	}
+         const nextPageButton = doc.querySelector('.a-last');
+         if (nextPageButton && nextPageButton.classList.contains('a-disabled')) {
+            currentEncorePage = 1;
+         } else {
+            currentEncorePage++;
+         }
 
-	function sleep(ms) {
-		return new Promise(resolve => setTimeout(resolve, ms));
-	}
+         localStorage.setItem('currentEncorePage', currentEncorePage);
+      } catch (error) {
+         console.error('Fehler beim Abrufen der Encore-Seite:', error);
+      } finally {
+         isFetchingEncore = false;
+      }
+   }
 
-	function getRandomInt(min, max) {
-		min = Math.ceil(min);
-		max = Math.floor(max);
-		return Math.floor(Math.random() * (max - min + 1)) + min;
-	}
+   function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+   }
 
-	async function updateEncorePageInfo(page) {
-		const pageInfoElement = document.querySelector('.page-info');
-		if (pageInfoElement) {
-			pageInfoElement.textContent = `Aktuelle ZA Seite: ${page}`;
-		} else {
-			const newPageInfoElement = document.createElement('div');
-			newPageInfoElement.classList.add('page-info');
-			newPageInfoElement.style.position = 'fixed';
-			newPageInfoElement.style.bottom = '10px';
-			newPageInfoElement.style.right = '10px';
-			newPageInfoElement.style.padding = '10px';
-			newPageInfoElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-			newPageInfoElement.style.color = 'white';
-			newPageInfoElement.style.fontSize = '14px';
-			newPageInfoElement.style.borderRadius = '5px';
-			newPageInfoElement.style.zIndex = '10000';
-			newPageInfoElement.textContent = `Aktuelle ZA Seite: ${page}`;
-			document.body.appendChild(newPageInfoElement);
-		}
-	}
+   function getRandomInt(min, max) {
+      min = Math.ceil(min);
+      max = Math.floor(max);
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+   }
 
-	async function startFetchingArticles() {
-		try {
-			while (true) {
-				if (!checkActiveTab()) {
-					console.log(`Tab nicht aktiv..`);
-					await sleep(5000);
-					continue;
-				}
-				updateActiveTimestamp();
-				console.log(`Starte checkForNewArticles..`);
-				await checkForNewArticles(isLastChance ? lastChanceUrl : encoreFixedUrl);
-				isLastChance = !isLastChance;
-				await sleep(getRandomInt(10000, 15000));
-				if (!checkActiveTab()) {
-					await sleep(5000);
-					continue;
-				}
-				await fetchEncorePage();
-				await sleep(getRandomInt(10000, 15000));
-			}
-		} catch (error) {
-			console.error('Fehler beim Starten der Artikelüberwachung:', error);
-		}
-	}
+   async function updateEncorePageInfo(page) {
+      const pageInfoElement = document.querySelector('.page-info');
+      if (pageInfoElement) {
+         pageInfoElement.textContent = `Aktuelle ZA Seite: ${page}`;
+      } else {
+         const newPageInfoElement = document.createElement('div');
+         newPageInfoElement.classList.add('page-info');
+         newPageInfoElement.style.position = 'fixed';
+         newPageInfoElement.style.bottom = '10px';
+         newPageInfoElement.style.right = '10px';
+         newPageInfoElement.style.padding = '10px';
+         newPageInfoElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+         newPageInfoElement.style.color = 'white';
+         newPageInfoElement.style.fontSize = '14px';
+         newPageInfoElement.style.borderRadius = '5px';
+         newPageInfoElement.style.zIndex = '10000';
+         newPageInfoElement.textContent = `Aktuelle ZA Seite: ${page}`;
+         document.body.appendChild(newPageInfoElement);
+      }
+   }
 
-	function setActiveMenuButton(button) {
-		document.getElementById('vvp-items-button-container').querySelectorAll('span').forEach(span => {
-			span.classList.remove('a-button-selected');
-		});
+   async function startFetchingArticles() {
+      try {
+         while (true) {
+            if (!checkActiveTab()) {
+               console.log(`Tab nicht aktiv..`);
+               await sleep(5000);
+               continue;
+            }
+            updateActiveTimestamp();
+            console.log(`Starte checkForNewArticles..`);
+            await checkForNewArticles(isLastChance ? lastChanceUrl : encoreFixedUrl);
+            isLastChance = !isLastChance;
+            await sleep(getRandomInt(10000, 15000));
+            if (!checkActiveTab()) {
+               await sleep(5000);
+               continue;
+            }
+            await fetchEncorePage();
+            await sleep(getRandomInt(10000, 15000));
+         }
+      } catch (error) {
+         console.error('Fehler beim Starten der Artikelüberwachung:', error);
+      }
+   }
 
-		button.classList.add('a-button-selected');
-	}
+   function setActiveMenuButton(button) {
+      document.getElementById('vvp-items-button-container').querySelectorAll('span').forEach(span => {
+         span.classList.remove('a-button-selected');
+      });
 
-	function showFseShare() {
-		const fseShareButton = document.getElementById('fse-share-button');
-		if (fseShareButton) {
-			setActiveMenuButton(fseShareButton);
+      button.classList.add('a-button-selected');
+   }
 
-			const searchResultsContainer = document.querySelector('div.search-results-grid');
-			if (searchResultsContainer) {
-				searchResultsContainer.style.display = 'grid';
-				loadFseArticles(searchResultsContainer);
-			} else {
-				console.error('Nicht gefunden: div.search-results-grid');
-			}
-		} else {
-			console.error('Nicht gefunden: #fse-share-button');
-		}
-	}
+   function showFseShare() {
+      const fseShareButton = document.getElementById('fse-share-button');
+      if (fseShareButton) {
+         setActiveMenuButton(fseShareButton);
 
-	async function loadFseArticles(resultsGrid) {
-		try {
-			const response = await fetch('https://vinefuckers.de/api/articles/fse?token=' + vfToken);
-			if (!response.ok) {
-				throw new Error('Fehler beim Laden der FSE-Artikel');
-			}
-			const data = await response.json();
+         const searchResultsContainer = document.querySelector('div.search-results-grid');
+         if (searchResultsContainer) {
+            searchResultsContainer.style.display = 'grid';
+            loadFseArticles(searchResultsContainer);
+         } else {
+            console.error('Nicht gefunden: div.search-results-grid');
+         }
+      } else {
+         console.error('Nicht gefunden: #fse-share-button');
+      }
+   }
 
-			if (!Array.isArray(data.articles)) {
-				throw new Error('Die API-Antwort enthält keine Liste von Artikeln');
-			}
+   async function loadFseArticles(resultsGrid) {
+      try {
+         const response = await fetch('https://vinefuckers.de/api/articles/fse?token=' + vfToken);
+         if (!response.ok) {
+            throw new Error('Fehler beim Laden der FSE-Artikel');
+         }
+         const data = await response.json();
 
-			const articles = data.articles;
+         if (!Array.isArray(data.articles)) {
+            throw new Error('Die API-Antwort enthält keine Liste von Artikeln');
+         }
 
-			if (articles.length === 0) {
-				resultsGrid.innerHTML = 'Keine Ergebnisse gefunden.';
-				return;
-			}
+         const articles = data.articles;
 
-			resultsGrid.innerHTML = '';
-			articles.forEach(article => {
-				article.id = replacePlacerholderWithUserId(article.id);
-				const createdAtFormatted = formatTimestamp(article.createdAt);
-                		const lastSeenFormatted = formatTimestamp(article.lastSeen);
-				const item = document.createElement('div');
-				item.classList.add('search-result-item');
-				item.innerHTML = `
+         if (articles.length === 0) {
+            resultsGrid.innerHTML = 'Keine Ergebnisse gefunden.';
+            return;
+         }
+
+         resultsGrid.innerHTML = '';
+         articles.forEach(article => {
+            article.id = replacePlacerholderWithUserId(article.id);
+            const createdAtFormatted = formatTimestamp(article.createdAt);
+            const lastSeenFormatted = formatTimestamp(article.lastSeen);
+            const item = document.createElement('div');
+            item.classList.add('search-result-item');
+            item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
                 <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined ? article.tax + ' €' : '-'}</span></p>
@@ -394,22 +397,22 @@
                 <button class="view-vine-details-btn">Weitere Details</button>
             `;
 
-				const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
-				viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
-				viewVineDetailsButton.style.padding = '5px 15px';
+            const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
+            viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
+            viewVineDetailsButton.style.padding = '5px 15px';
 
-				viewVineDetailsButton.addEventListener('click', () => {
-					let recommendationType;
-					if (article.kategorie === 'vfa') {
-						recommendationType = 'VENDOR_VINE_FOR_ALL';
-					} else if (article.kategorie === 'za') {
-						recommendationType = 'VINE_FOR_ALL';
-					} else {
-						recommendationType = 'VENDOR_TARGETED';
-					}
-					const vineElementTmp = document.createElement('div');
-					vineElementTmp.style.display = 'none';
-					vineElementTmp.innerHTML = `
+            viewVineDetailsButton.addEventListener('click', () => {
+               let recommendationType;
+               if (article.kategorie === 'vfa') {
+                  recommendationType = 'VENDOR_VINE_FOR_ALL';
+               } else if (article.kategorie === 'za') {
+                  recommendationType = 'VINE_FOR_ALL';
+               } else {
+                  recommendationType = 'VENDOR_TARGETED';
+               }
+               const vineElementTmp = document.createElement('div');
+               vineElementTmp.style.display = 'none';
+               vineElementTmp.innerHTML = `
                     <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
                         <span class="a-button-inner">
                             <input data-asin="${article.asin}" data-is-parent-asin="${article.isParentAsin}" data-recommendation-id="${article.id}" data-recommendation-type="${recommendationType}" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
@@ -417,70 +420,70 @@
                         </span>
                     </span>
                 `;
-					document.body.appendChild(vineElementTmp);
+               document.body.appendChild(vineElementTmp);
 
-					setTimeout(() => {
-						vineElementTmp.querySelector('input').click();
-						setTimeout(() => {
-							vineElementTmp.remove();
-						}, 200);
-					}, 500);
-				});
+               setTimeout(() => {
+                  vineElementTmp.querySelector('input').click();
+                  setTimeout(() => {
+                     vineElementTmp.remove();
+                  }, 200);
+               }, 500);
+            });
 
-				resultsGrid.appendChild(item);
-			});
-		} catch (error) {
-			console.error('Fehler beim Laden der FSE-Artikel:', error);
-			resultsGrid.innerHTML = 'Fehler beim Laden der FSE-Artikel.';
-		}
-	}
+            resultsGrid.appendChild(item);
+         });
+      } catch (error) {
+         console.error('Fehler beim Laden der FSE-Artikel:', error);
+         resultsGrid.innerHTML = 'Fehler beim Laden der FSE-Artikel.';
+      }
+   }
 
 
-	function showLatestProducts() {
-		const latestProductsButton = document.getElementById('latest-products-button');
-		if (latestProductsButton) {
-			setActiveMenuButton(latestProductsButton);
+   function showLatestProducts() {
+      const latestProductsButton = document.getElementById('latest-products-button');
+      if (latestProductsButton) {
+         setActiveMenuButton(latestProductsButton);
 
-			const searchResultsGrid = document.querySelector('div.search-results-grid');
-			if (searchResultsGrid) {
-				searchResultsGrid.style.display = 'grid';
-				searchResultsGrid.innerHTML = 'Lade neueste Produkte...';
+         const searchResultsGrid = document.querySelector('div.search-results-grid');
+         if (searchResultsGrid) {
+            searchResultsGrid.style.display = 'grid';
+            searchResultsGrid.innerHTML = 'Lade neueste Produkte...';
 
-				loadLatestProducts(searchResultsGrid);
-			} else {
-				console.error('Nicht gefunden: div.search-results-grid');
-			}
-		} else {
-			console.error('Nicht gefunden: #latest-products-button');
-		}
-	}
+            loadLatestProducts(searchResultsGrid);
+         } else {
+            console.error('Nicht gefunden: div.search-results-grid');
+         }
+      } else {
+         console.error('Nicht gefunden: #latest-products-button');
+      }
+   }
 
-	async function loadLatestProducts(resultsGrid) {
-		try {
-			const response = await fetch('https://vinefuckers.de/api/articles/latest?token=' + vfToken);
-			if (!response.ok) {
-				throw new Error('Fehler beim Laden der neuesten Produkte');
-			}
-			const data = await response.json();
+   async function loadLatestProducts(resultsGrid) {
+      try {
+         const response = await fetch('https://vinefuckers.de/api/articles/latest?token=' + vfToken);
+         if (!response.ok) {
+            throw new Error('Fehler beim Laden der neuesten Produkte');
+         }
+         const data = await response.json();
 
-			if (!Array.isArray(data.articles)) {
-				throw new Error('Die API-Antwort enthält keine Liste von Artikeln');
-			}
+         if (!Array.isArray(data.articles)) {
+            throw new Error('Die API-Antwort enthält keine Liste von Artikeln');
+         }
 
-			const articles = data.articles;
+         const articles = data.articles;
 
-			if (articles.length === 0) {
-				resultsGrid.innerHTML = 'Keine Ergebnisse gefunden.';
-				return;
-			}
+         if (articles.length === 0) {
+            resultsGrid.innerHTML = 'Keine Ergebnisse gefunden.';
+            return;
+         }
 
-			resultsGrid.innerHTML = '';
-			articles.forEach(article => {
-				const createdAtFormatted = formatTimestamp(article.createdAt);
-                const lastSeenFormatted = formatTimestamp(article.lastSeen);
-				const item = document.createElement('div');
-				item.classList.add('search-result-item');
-				item.innerHTML = `
+         resultsGrid.innerHTML = '';
+         articles.forEach(article => {
+            const createdAtFormatted = formatTimestamp(article.createdAt);
+            const lastSeenFormatted = formatTimestamp(article.lastSeen);
+            const item = document.createElement('div');
+            item.classList.add('search-result-item');
+            item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
                 <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined ? article.tax + ' €' : '-'}</span></p>
@@ -491,22 +494,22 @@
                 <button class="view-vine-details-btn">Weitere Details</button>
             `;
 
-				const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
-				viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
-				viewVineDetailsButton.style.padding = '5px 15px';
+            const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
+            viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
+            viewVineDetailsButton.style.padding = '5px 15px';
 
-				viewVineDetailsButton.addEventListener('click', () => {
-					let recommendationType;
-					if (article.kategorie === 'vfa') {
-						recommendationType = 'VENDOR_VINE_FOR_ALL';
-					} else if (article.kategorie === 'za') {
-						recommendationType = 'VINE_FOR_ALL';
-					} else {
-						recommendationType = 'VENDOR_TARGETED';
-					}
-					const vineElementTmp = document.createElement('div');
-					vineElementTmp.style.display = 'none';
-					vineElementTmp.innerHTML = `
+            viewVineDetailsButton.addEventListener('click', () => {
+               let recommendationType;
+               if (article.kategorie === 'vfa') {
+                  recommendationType = 'VENDOR_VINE_FOR_ALL';
+               } else if (article.kategorie === 'za') {
+                  recommendationType = 'VINE_FOR_ALL';
+               } else {
+                  recommendationType = 'VENDOR_TARGETED';
+               }
+               const vineElementTmp = document.createElement('div');
+               vineElementTmp.style.display = 'none';
+               vineElementTmp.innerHTML = `
                     <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
                         <span class="a-button-inner">
                             <input data-asin="${article.asin}" data-is-parent-asin="${article.isParentAsin}" data-recommendation-id="${article.id}" data-recommendation-type="${recommendationType}" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
@@ -514,58 +517,58 @@
                         </span>
                     </span>
                 `;
-					document.body.appendChild(vineElementTmp);
+               document.body.appendChild(vineElementTmp);
 
-					setTimeout(() => {
-						vineElementTmp.querySelector('input').click();
-						setTimeout(() => {
-							vineElementTmp.remove();
-						}, 200);
-					}, 500);
-				});
+               setTimeout(() => {
+                  vineElementTmp.querySelector('input').click();
+                  setTimeout(() => {
+                     vineElementTmp.remove();
+                  }, 200);
+               }, 500);
+            });
 
-				resultsGrid.appendChild(item);
-			});
-		} catch (error) {
-			console.error('Fehler beim Laden der neuesten Produkte:', error);
-			resultsGrid.innerHTML = 'Fehler beim Laden der neuesten Produkte.';
-		}
-	}
+            resultsGrid.appendChild(item);
+         });
+      } catch (error) {
+         console.error('Fehler beim Laden der neuesten Produkte:', error);
+         resultsGrid.innerHTML = 'Fehler beim Laden der neuesten Produkte.';
+      }
+   }
 
-	function injectSearchUI() {
-		if (document.querySelector('.search-container')) return;
+   function injectSearchUI() {
+      if (document.querySelector('.search-container')) return;
 
-		const vvpItemsButtonContainer = document.getElementById('vvp-items-button-container');
-		if (!vvpItemsButtonContainer) return;
+      const vvpItemsButtonContainer = document.getElementById('vvp-items-button-container');
+      if (!vvpItemsButtonContainer) return;
 
-		const separatorElement = document.createElement('span');
-		separatorElement.classList.add('separator');
+      const separatorElement = document.createElement('span');
+      separatorElement.classList.add('separator');
 
-		const fseShareButton = document.createElement('span');
-		fseShareButton.id = 'fse-share-button'
-		fseShareButton.classList.add('a-button', 'a-button-normal', 'a-button-toggle');
-		fseShareButton.innerHTML = '<span class="a-button-inner"><a href="#" class="a-button-text">FSE-Share</a></span>';
-		fseShareButton.addEventListener('click', showFseShare);
+      const fseShareButton = document.createElement('span');
+      fseShareButton.id = 'fse-share-button'
+      fseShareButton.classList.add('a-button', 'a-button-normal', 'a-button-toggle');
+      fseShareButton.innerHTML = '<span class="a-button-inner"><a href="#" class="a-button-text">FSE-Share</a></span>';
+      fseShareButton.addEventListener('click', showFseShare);
 
-		const latestProductsButton = document.createElement('span');
-		latestProductsButton.id = 'latest-products-button'
-		latestProductsButton.classList.add('a-button', 'a-button-normal', 'a-button-toggle');
-		latestProductsButton.innerHTML = '<span class="a-button-inner"><a href="#" class="a-button-text">Neueste Produkte</a></span>';
-		latestProductsButton.addEventListener('click', showLatestProducts);
+      const latestProductsButton = document.createElement('span');
+      latestProductsButton.id = 'latest-products-button'
+      latestProductsButton.classList.add('a-button', 'a-button-normal', 'a-button-toggle');
+      latestProductsButton.innerHTML = '<span class="a-button-inner"><a href="#" class="a-button-text">Neueste Produkte</a></span>';
+      latestProductsButton.addEventListener('click', showLatestProducts);
 
-		const searchContainer = document.createElement('span');
-		searchContainer.classList.add('search-container');
+      const searchContainer = document.createElement('span');
+      searchContainer.classList.add('search-container');
 
-		searchContainer.innerHTML = `
+      searchContainer.innerHTML = `
         <div class="search-input-container">
           <input type="text" id="searchQuery" placeholder="Suche Vine Produkte">
-          <button id="resetSearchButton">&#10006;</button>
+          <button id="resetSearchButton">✖</button>
         </div>
         <button id="searchButton">Suchen</button>
     `;
 
-		const style = document.createElement('style');
-		style.textContent = `
+      const style = document.createElement('style');
+      style.textContent = `
             .search-container {
                 align-items: center;
             }
@@ -635,76 +638,76 @@
             }
         `;
 
-		const searchResultsContainer = document.createElement('div');
-		searchResultsContainer.classList.add('search-results-grid');
-		vvpItemsButtonContainer.appendChild(separatorElement);
-		vvpItemsButtonContainer.appendChild(latestProductsButton);
-		vvpItemsButtonContainer.appendChild(fseShareButton);
-		vvpItemsButtonContainer.appendChild(searchContainer);
-		vvpItemsButtonContainer.parentElement.insertAdjacentElement('afterend', searchResultsContainer);
-		document.head.appendChild(style);
+      const searchResultsContainer = document.createElement('div');
+      searchResultsContainer.classList.add('search-results-grid');
+      vvpItemsButtonContainer.appendChild(separatorElement);
+      vvpItemsButtonContainer.appendChild(latestProductsButton);
+      vvpItemsButtonContainer.appendChild(fseShareButton);
+      vvpItemsButtonContainer.appendChild(searchContainer);
+      vvpItemsButtonContainer.parentElement.insertAdjacentElement('afterend', searchResultsContainer);
+      document.head.appendChild(style);
 
-		const searchButton = document.getElementById('searchButton');
-		const searchQueryInput = document.getElementById('searchQuery');
-		const resetSearchButton = document.getElementById('resetSearchButton');
+      const searchButton = document.getElementById('searchButton');
+      const searchQueryInput = document.getElementById('searchQuery');
+      const resetSearchButton = document.getElementById('resetSearchButton');
 
-		searchButton.classList.add('a-button', 'a-button-primary');
-		searchButton.style.padding = '5px 15px';
-		resetSearchButton.classList.add('a-button');
-		resetSearchButton.style.padding = '5px 15px';
+      searchButton.classList.add('a-button', 'a-button-primary');
+      searchButton.style.padding = '5px 15px';
+      resetSearchButton.classList.add('a-button');
+      resetSearchButton.style.padding = '5px 15px';
 
-		searchQueryInput.addEventListener('keydown', async (event) => {
-			if (event.key === 'Enter') {
-				const query = searchQueryInput.value.trim();
-				if (query === '') return;
+      searchQueryInput.addEventListener('keydown', async (event) => {
+         if (event.key === 'Enter') {
+            const query = searchQueryInput.value.trim();
+            if (query === '') return;
 
-				searchResultsContainer.innerHTML = 'Lädt...';
-				try {
-					const response = await fetch(`${searchArticlesUrl}${encodeURIComponent(query)}`);
-					const data = await response.json();
-					displaySearchResults(data.articles);
-				} catch (error) {
-					console.error('Fehler bei der Suche:', error);
-					searchResultsContainer.innerHTML = 'Fehler bei der Suche.';
-				}
-			}
-		});
+            searchResultsContainer.innerHTML = 'Lädt...';
+            try {
+               const response = await fetch(`${searchArticlesUrl}${encodeURIComponent(query)}`);
+               const data = await response.json();
+               displaySearchResults(data.articles);
+            } catch (error) {
+               console.error('Fehler bei der Suche:', error);
+               searchResultsContainer.innerHTML = 'Fehler bei der Suche.';
+            }
+         }
+      });
 
-		searchButton.addEventListener('click', async () => {
-			const query = searchQueryInput.value.trim();
-			if (query === '') return;
+      searchButton.addEventListener('click', async () => {
+         const query = searchQueryInput.value.trim();
+         if (query === '') return;
 
-			searchResultsContainer.innerHTML = 'Lädt...';
-			try {
-				const response = await fetch(`${searchArticlesUrl}${encodeURIComponent(query)}`);
-				const data = await response.json();
-				displaySearchResults(data.articles);
-			} catch (error) {
-				console.error('Fehler bei der Suche:', error);
-				searchResultsContainer.innerHTML = 'Fehler bei der Suche.';
-			}
-		});
+         searchResultsContainer.innerHTML = 'Lädt...';
+         try {
+            const response = await fetch(`${searchArticlesUrl}${encodeURIComponent(query)}`);
+            const data = await response.json();
+            displaySearchResults(data.articles);
+         } catch (error) {
+            console.error('Fehler bei der Suche:', error);
+            searchResultsContainer.innerHTML = 'Fehler bei der Suche.';
+         }
+      });
 
-		resetSearchButton.addEventListener('click', () => {
-			searchQueryInput.value = '';
-			searchResultsContainer.style.display = 'none';
-			searchResultsContainer.innerHTML = '';
-		});
+      resetSearchButton.addEventListener('click', () => {
+         searchQueryInput.value = '';
+         searchResultsContainer.style.display = 'none';
+         searchResultsContainer.innerHTML = '';
+      });
 
-		function displaySearchResults(articles) {
-			if (articles.length === 0) {
-				searchResultsContainer.innerHTML = 'Keine Ergebnisse gefunden.';
-				return;
-			}
+      function displaySearchResults(articles) {
+         if (articles.length === 0) {
+            searchResultsContainer.innerHTML = 'Keine Ergebnisse gefunden.';
+            return;
+         }
 
-			searchResultsContainer.style.display = 'grid'
-			searchResultsContainer.innerHTML = '';
-			articles.forEach(article => {
-				const createdAtFormatted = formatTimestamp(article.createdAt);
-				const lastSeenFormatted = formatTimestamp(article.lastSeen);
-				const item = document.createElement('div');
-				item.classList.add('search-result-item');
-				item.innerHTML = `
+         searchResultsContainer.style.display = 'grid'
+         searchResultsContainer.innerHTML = '';
+         articles.forEach(article => {
+            const createdAtFormatted = formatTimestamp(article.createdAt);
+            const lastSeenFormatted = formatTimestamp(article.lastSeen);
+            const item = document.createElement('div');
+            item.classList.add('search-result-item');
+            item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
                 <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined ? article.tax + ' €' : '-'}</span></p>
@@ -715,22 +718,22 @@
                 <button class="view-vine-details-btn">Weitere Details</button>
             `;
 
-				const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
-				viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
-				viewVineDetailsButton.style.padding = '5px 15px';
+            const viewVineDetailsButton = item.querySelector('.view-vine-details-btn');
+            viewVineDetailsButton.classList.add('a-button', 'a-button-primary');
+            viewVineDetailsButton.style.padding = '5px 15px';
 
-				viewVineDetailsButton.addEventListener('click', () => {
-					let recommendationType;
-					if (article.kategorie === 'vfa') {
-						recommendationType = 'VENDOR_VINE_FOR_ALL';
-					} else if (article.kategorie === 'za') {
-						recommendationType = 'VINE_FOR_ALL';
-					} else {
-						recommendationType = 'VENDOR_TARGETED';
-					}
-					const vineElementTmp = document.createElement('div');
-					vineElementTmp.style.display = 'none';
-					vineElementTmp.innerHTML = `
+            viewVineDetailsButton.addEventListener('click', () => {
+               let recommendationType;
+               if (article.kategorie === 'vfa') {
+                  recommendationType = 'VENDOR_VINE_FOR_ALL';
+               } else if (article.kategorie === 'za') {
+                  recommendationType = 'VINE_FOR_ALL';
+               } else {
+                  recommendationType = 'VENDOR_TARGETED';
+               }
+               const vineElementTmp = document.createElement('div');
+               vineElementTmp.style.display = 'none';
+               vineElementTmp.innerHTML = `
                     <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
                         <span class="a-button-inner">
                             <input data-asin="${article.asin}" data-is-parent-asin="${article.isParentAsin}" data-recommendation-id="${article.id}" data-recommendation-type="${recommendationType}" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
@@ -738,29 +741,29 @@
                         </span>
                     </span>
                 `;
-					document.body.appendChild(vineElementTmp);
+               document.body.appendChild(vineElementTmp);
 
-					setTimeout(() => {
-						vineElementTmp.querySelector('input').click();
-						setTimeout(() => {
-							vineElementTmp.remove();
-						}, 200);
-					}, 500);
-				});
+               setTimeout(() => {
+                  vineElementTmp.querySelector('input').click();
+                  setTimeout(() => {
+                     vineElementTmp.remove();
+                  }, 200);
+               }, 500);
+            });
 
-				searchResultsContainer.appendChild(item);
-			});
-		}
-	}
+            searchResultsContainer.appendChild(item);
+         });
+      }
+   }
 
-	function updateVvpItemsGrid(newArticles) {
-		const vvpItemsGrid = document.getElementById('vvp-items-grid');
-		if (!vvpItemsGrid) return;
+   function updateVvpItemsGrid(newArticles) {
+      const vvpItemsGrid = document.getElementById('vvp-items-grid');
+      if (!vvpItemsGrid) return;
 
-		newArticles.forEach(article => {
-			const item = document.createElement('div');
-			item.classList.add('vvp-item-tile');
-			item.innerHTML = `
+      newArticles.forEach(article => {
+         const item = document.createElement('div');
+         item.classList.add('vvp-item-tile');
+         item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p>${article.description}</p>
                 <p>ID: ${article.tax}</p>
@@ -768,77 +771,91 @@
                 <p>ID: ${article.id}</p>
                 <p>Kategorie: ${article.kategorie}</p>
             `;
-			vvpItemsGrid.insertBefore(item, vvpItemsGrid.firstChild);
-		});
-	}
+         vvpItemsGrid.insertBefore(item, vvpItemsGrid.firstChild);
+      });
+   }
 
-	function duplicatePaginationElement() {
-		const paginationElement = document.querySelector('.a-pagination');
-		const targetElement = document.getElementById('vvp-items-grid');
-		if (paginationElement && targetElement) {
-			const paginationContainer = document.createElement('div');
-			paginationContainer.style.display = 'flex';
-			paginationContainer.style.justifyContent = 'center';
-			paginationContainer.style.marginBottom = '20px';
-			paginationContainer.style.marginTop = '-41px';
-			paginationContainer.appendChild(paginationElement.cloneNode(true));
-			targetElement.parentNode.insertBefore(paginationContainer, targetElement);
-		} else {
-			console.error('Pagination element or target element not found');
-		}
-	}
+   function duplicatePaginationElement() {
+      const paginationElement = document.querySelector('.a-pagination');
+      const targetElement = document.getElementById('vvp-items-grid');
+      if (paginationElement && targetElement) {
+         const paginationContainer = document.createElement('div');
+         paginationContainer.style.display = 'flex';
+         paginationContainer.style.justifyContent = 'center';
+         paginationContainer.style.marginBottom = '20px';
+         paginationContainer.style.marginTop = '-41px';
+         paginationContainer.appendChild(paginationElement.cloneNode(true));
+         targetElement.parentNode.insertBefore(paginationContainer, targetElement);
+      } else {
+         console.error('Pagination element or target element not found');
+      }
+   }
 
-	function injectTaxInterception() {
-		console.log(`[VF]`, `Tax Interception Injectet`);
-		const vvpItems = document.getElementById('vvp-items-grid').querySelectorAll('.vvp-item-tile');
-		let elements = []
-		vvpItems.forEach(element => {
-			if (debug) {
-				console.log(`[VF]`, element)
-			};
-			element.querySelector('.vvp-item-tile-content > .vvp-details-btn').addEventListener('click', () => {
+   function injectTaxInterception() {
+      console.log(`[VF]`, `Tax Interception Injected`);
+      const vvpItemsGrid = document.getElementById('vvp-items-grid');
 
-				// Delete the Tax Value to detect the correct Value for the next Product
-				const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
-				document.querySelector(popupTaxContainer).textContent = "";
+      if (vvpItemsGrid) {
+         const vvpItems = vvpItemsGrid.querySelectorAll('.vvp-item-tile');
+         let elements = [];
+         vvpItems.forEach(element => {
+            if (debug) {
+               console.log(`[VF]`, element);
+            };
+            element.querySelector('.vvp-item-tile-content > .vvp-details-btn').addEventListener('click', () => {
 
-				if (debug) {
-					console.log(`[VF]`, element)
-				};
-				waitForHtmlElmement('#vvp-product-details-modal--tax-value-string', (selector) => {
+               // Delete the Tax Value to detect the correct Value for the next Product
+               const popupTaxContainer = '#vvp-product-details-modal--tax-value-string';
+               const popupTaxElem = document.querySelector(popupTaxContainer);
+               if (popupTaxElem) {
+                  popupTaxElem.textContent = "";
+               }
 
-					waitForHtmlElementWithContent('#vvp-product-details-modal--tax-value-string', async (elem) => {
-						const taxWert = parseFloat(elem.textContent.replace('€', '').trim());
-						if (debug) {
-							console.log(`[VF]`, taxWert)
-						};
-						console.log('[VF]', `Tax Wert des Artikels: ${taxWert}`);
-						element.querySelector('input[data-asin]').setAttribute('data-tax', taxWert);
+               if (debug) {
+                  console.log(`[VF]`, element);
+               };
+               waitForHtmlElmement('#vvp-product-details-modal--tax-value-string', (selector) => {
 
-						elements.push(element);
-						const category = getCategory(window.location.href);
-						let newInfos = extractArticleInfos(elements);
-						if (debug) {
-							console.log('[VF]', newInfos)
-						};
-						newInfos.forEach(info => {
-                            console.log(info.id);
-                            info.id = replaceUserId(info.id);
-                            console.log(info.id);
+                  waitForHtmlElementWithContent('#vvp-product-details-modal--tax-value-string', async (elem) => {
+                     const taxWert = parseFloat(elem.textContent.replace('€', '').trim());
+                     if (debug) {
+                        console.log(`[VF]`, taxWert);
+                     };
+                     console.log('[VF]', `Tax Wert des Artikels: ${taxWert}`);
+                     element.querySelector('input[data-asin]').setAttribute('data-tax', taxWert);
+
+                     elements.push(element);
+                     const category = getCategory(window.location.href);
+                     let newInfos = extractArticleInfos(elements);
+                     if (debug) {
+                        console.log('[VF]', newInfos);
+                     };
+
+                     if (category === 'fse') {
+                        newInfos.forEach(info => {
+                           console.log(info.id);
+                           info.id = replaceUserId(info.id);
+                           console.log(info.id);
                         });
-						const result = await sendArticleInfos(newInfos, category);
-						if (result && result.newArticleIds.length > 0) {
-							updateVvpItemsGrid(newInfos);
-						}
-						elements = [];
-					})
-				});
-			});
-		})
-		console.log(vvpItems);
-	}
+                     }
 
-	const newFetch = `
+                     const result = await sendArticleInfos(newInfos, category);
+                     if (result && result.newArticleIds.length > 0) {
+                        updateVvpItemsGrid(newInfos);
+                     }
+                     elements = [];
+                  });
+               });
+            });
+         });
+         console.log(vvpItems);
+      } else {
+         console.error(`[VF] Element with ID 'vvp-items-grid' not found.`);
+      }
+   }
+
+
+   const newFetch = `
 const origFetch = window.fetch;
 var extHelper_LastParentVariant = null;
 var extHelper_responseData = {};
@@ -998,63 +1015,62 @@ window.fetch = async (...args) => {
 };
 `;
 
-	function initInjectScript() {
-		if (document.getElementById('fetchfix')) {
-			console.warn('[CF] | Custom Fetch already Injected');
-			return;
-		}
-		var scriptTag = document.createElement("script");
-		scriptTag.id = 'fetchfix';
-		//Inject the infinite loading wheel fix to the "main world"
-		scriptTag.innerHTML = newFetch;
-		scriptTag.onload = function() {
-			this.remove();
-		};
-		// see also "Dynamic values in the injected code" section in this answer
-		(document.head || document.documentElement).appendChild(scriptTag);
-		console.log('[CF] | Custom Fetch Injected');
-	}
+   function initInjectScript() {
+      if (document.getElementById('fetchfix')) {
+         console.warn('[CF] | Custom Fetch already Injected');
+         return;
+      }
+      var scriptTag = document.createElement("script");
+      scriptTag.id = 'fetchfix';
+      //Inject the infinite loading wheel fix to the "main world"
+      scriptTag.innerHTML = newFetch;
+      scriptTag.onload = function () {
+         this.remove();
+      };
+      // see also "Dynamic values in the injected code" section in this answer
+      (document.head || document.documentElement).appendChild(scriptTag);
+      console.log('[CF] | Custom Fetch Injected');
+   }
 
-	initInjectScript();
+   initInjectScript();
 
 
+   async function init() {
+      checkTokenAndPrompt();
+      sendArticlesOnPageLoad();
+      injectSearchUI();
+      injectTaxInterception();
+      duplicatePaginationElement();
+      await sleep(2000);
+      startFetchingArticles();
+   }
 
-	async function init() {
-        checkTokenAndPrompt();
-		sendArticlesOnPageLoad();
-		injectSearchUI();
-		injectTaxInterception();
-		duplicatePaginationElement();
-		await sleep(2000);
-		startFetchingArticles();
-	}
+   const currentUrl = window.location.href;
+   if (currentUrl.includes('vine-data=')) {
+      const startIndex = currentUrl.indexOf('vine-data=') + 10;
+      const endIndex = currentUrl.indexOf('&', startIndex);
+      const vineDataParam = endIndex === -1 ? currentUrl.substring(startIndex) : currentUrl.substring(startIndex, endIndex);
 
-	const currentUrl = window.location.href;
-	if (currentUrl.includes('vine-data=')) {
-		const startIndex = currentUrl.indexOf('vine-data=') + 10;
-		const endIndex = currentUrl.indexOf('&', startIndex);
-		const vineDataParam = endIndex === -1 ? currentUrl.substring(startIndex) : currentUrl.substring(startIndex, endIndex);
+      try {
+         const {
+            asin,
+            recommendationId,
+            isParentAsin,
+            kategorie
+         } = JSON.parse(decodeURIComponent(vineDataParam));
 
-		try {
-			const {
-				asin,
-				recommendationId,
-				isParentAsin,
-				kategorie
-			} = JSON.parse(decodeURIComponent(vineDataParam));
+         let recommendationType;
+         if (kategorie === 'vfa') {
+            recommendationType = 'VENDOR_VINE_FOR_ALL';
+         } else if (kategorie === 'za') {
+            recommendationType = 'VINE_FOR_ALL';
+         } else {
+            recommendationType = 'VENDOR_TARGETED';
+         }
 
-			let recommendationType;
-			if (kategorie === 'vfa') {
-				recommendationType = 'VENDOR_VINE_FOR_ALL';
-			} else if (kategorie === 'za') {
-				recommendationType = 'VINE_FOR_ALL';
-			} else {
-				recommendationType = 'VENDOR_TARGETED';
-			}
-
-			const vineElementTmp = document.createElement('div');
-			vineElementTmp.style.display = 'none';
-			vineElementTmp.innerHTML = `
+         const vineElementTmp = document.createElement('div');
+         vineElementTmp.style.display = 'none';
+         vineElementTmp.innerHTML = `
                 <span class="a-button a-button-primary vvp-details-btn" id="a-autoid-0">
                     <span class="a-button-inner">
                         <input data-asin="${asin}" data-is-parent-asin="${isParentAsin}" data-recommendation-id="${recommendationId}" data-recommendation-type="recommendationType" class="a-button-input" type="submit" aria-labelledby="a-autoid-0-announce">
@@ -1062,82 +1078,82 @@ window.fetch = async (...args) => {
                     </span>
                 </span>
             `;
-			document.body.appendChild(vineElementTmp);
+         document.body.appendChild(vineElementTmp);
 
-			setTimeout(() => {
-				vineElementTmp.querySelector('input').click();
-				setTimeout(() => {
-					vineElementTmp.remove();
-				}, 200);
-			}, 500);
-		} catch (error) {
-			console.error('Fehler beim Verarbeiten von vine-data:', error);
-		}
-	}
+         setTimeout(() => {
+            vineElementTmp.querySelector('input').click();
+            setTimeout(() => {
+               vineElementTmp.remove();
+            }, 200);
+         }, 500);
+      } catch (error) {
+         console.error('Fehler beim Verarbeiten von vine-data:', error);
+      }
+   }
 
-	init();
+   init();
 
-	/**
-	 * Waits until a HTML Element exists ans fires callback if it is found
-	 * @param {string} selector querySelector
-	 * @param {function} cb Callback Function
-	 * @param {object} [altDocument] Alternativ document root
-	 */
-	async function waitForHtmlElmement(selector, cb, altDocument = document) {
-		if (typeof(selector) != 'string') throw new Error('waitForHtmlElement(): selector is not defined or is not type of string');
-		if (typeof(cb) != 'function') throw new Error('waitForHtmlElement(): cb is not defined or is not type of string');
+   /**
+    * Waits until a HTML Element exists ans fires callback if it is found
+    * @param {string} selector querySelector
+    * @param {function} cb Callback Function
+    * @param {object} [altDocument] Alternativ document root
+    */
+   async function waitForHtmlElmement(selector, cb, altDocument = document) {
+      if (typeof (selector) != 'string') throw new Error('waitForHtmlElement(): selector is not defined or is not type of string');
+      if (typeof (cb) != 'function') throw new Error('waitForHtmlElement(): cb is not defined or is not type of string');
 
-		if (altDocument.querySelector(selector)) {
-			cb(altDocument.querySelector(selector));
-			return;
-		}
+      if (altDocument.querySelector(selector)) {
+         cb(altDocument.querySelector(selector));
+         return;
+      }
 
-		const _observer = new MutationObserver(mutations => {
-			if (altDocument.querySelector(selector)) {
-				_observer.disconnect();
-				cb(altDocument.querySelector(selector));
-				return;
-			}
-		});
+      const _observer = new MutationObserver(mutations => {
+         if (altDocument.querySelector(selector)) {
+            _observer.disconnect();
+            cb(altDocument.querySelector(selector));
+            return;
+         }
+      });
 
-		_observer.observe(altDocument.body || altDocument, {
-			childList: true,
-			subtree: true
-		});
-	}
+      _observer.observe(altDocument.body || altDocument, {
+         childList: true,
+         subtree: true
+      });
+   }
 
-	/**
-	 * Waits until a HTML Element's textContent is not empty and fires callback if it is found
-	 * @param {string} selector querySelector
-	 * @param {function} cb Callback Function
-	 * @param {object} [altDocument] Alternative document root
-	 */
-	async function waitForHtmlElementWithContent(selector, cb, altDocument = document) {
-		if (typeof(selector) !== 'string') throw new Error('waitForHtmlElementWithContent(): selector is not defined or is not type of string');
-		if (typeof(cb) !== 'function') throw new Error('waitForHtmlElementWithContent(): cb is not defined or is not type of function');
+   /**
+    * Waits until a HTML Element's textContent is not empty and fires callback if it is found
+    * @param {string} selector querySelector
+    * @param {function} cb Callback Function
+    * @param {object} [altDocument] Alternative document root
+    */
+   async function waitForHtmlElementWithContent(selector, cb, altDocument = document) {
+      if (typeof (selector) !== 'string') throw new Error('waitForHtmlElementWithContent(): selector is not defined or is not type of string');
+      if (typeof (cb) !== 'function') throw new Error('waitForHtmlElementWithContent(): cb is not defined or is not type of function');
 
-		const checkElementContent = () => {
-			const element = altDocument.querySelector(selector);
-			if (element && element.textContent.trim() !== "") {
-				cb(element);
-				return true;
-			}
-			return false;
-		};
+      const checkElementContent = () => {
+         const element = altDocument.querySelector(selector);
+         if (element && element.textContent.trim() !== "") {
+            cb(element);
+            return true;
+         }
+         return false;
+      };
 
-		if (checkElementContent()) return;
+      if (checkElementContent()) return;
 
-		const _observer = new MutationObserver(mutations => {
-			if (checkElementContent()) {
-				_observer.disconnect();
-			}
-		});
+      const _observer = new MutationObserver(mutations => {
+         if (checkElementContent()) {
+            _observer.disconnect();
+         }
+      });
 
-		_observer.observe(altDocument.body || altDocument, {
-			childList: true,
-			subtree: true
-		});
-	}
+      _observer.observe(altDocument.body || altDocument, {
+         childList: true,
+         subtree: true
+      });
+   }
 
 
 })();
