@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.24
+// @version      1.5.25
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -389,7 +389,7 @@
             item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
-                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined && article.tax !== null ? article.tax + ' €' : '-'}</span></p>
+                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie ? article.kategorie.toUpperCase() : ''}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined && article.tax !== null ? article.tax + ' €' : '-'}</span></p>
                 <p>
                   <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
                   <span title="Zuletzt gesehen">👁 ${lastSeenFormatted}</span>
@@ -486,7 +486,7 @@
             item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
-                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined && article.tax !== null ? article.tax + ' €' : '-'}</span></p>
+                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie ? article.kategorie.toUpperCase() : ''}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined && article.tax !== null ? article.tax + ' €' : '-'}</span></p>
                 <p>
                   <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
                   <span title="Zuletzt gesehen">👁 ${lastSeenFormatted}</span>
@@ -710,7 +710,7 @@
             item.innerHTML = `
                 <img src="${article.imageUrl}" alt="${article.description}" />
                 <p class="title"><a href="https://www.amazon.de/dp/${article.asin}" target="_blank">${article.description}</a></p>
-                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie.toUpperCase()}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined && article.tax !== null ? article.tax + ' €' : '-'}</span></p>
+                <p><span title="ASIN">${article.asin}</span> | <span title="Kategorie">${article.kategorie ? article.kategorie.toUpperCase() : ''}</span> | <span title="Steuerwert">Tax: ${article.tax !== undefined && article.tax !== null ? article.tax + ' €' : '-'}</span></p>
                 <p>
                   <span title="Zuerst gesehen">🆕 ${createdAtFormatted}</span><br>
                   <span title="Zuletzt gesehen">👁 ${lastSeenFormatted}</span>
