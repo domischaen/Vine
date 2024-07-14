@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.5.25
+// @version      1.5.26
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -19,7 +19,7 @@
 
    const debug = false;
    const vfToken = localStorage.getItem('vf-token');
-   const sendArticlesUrl = 'https://vinefuckers.de/api/articles';
+   const sendArticlesUrl = 'https://vinefuckers.de/api/articles?token=' + vfToken;
    const searchArticlesUrl = 'https://vinefuckers.de/vinefuckersfuckedvine?query=';
    const lastChanceUrl = 'https://www.amazon.de/vine/vine-items?queue=last_chance';
    const encoreFixedUrl = 'https://www.amazon.de/vine/vine-items?queue=encore&pn=340846031';
