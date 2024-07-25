@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.6.0
+// @version      1.6.1
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
@@ -1021,7 +1021,7 @@
 
 			const article = {
 				asin,
-				id: recommendationId,
+				id: replacePlacerholderWithUserId(recommendationId),
 				isParentAsin,
 				kategorie
 			};
