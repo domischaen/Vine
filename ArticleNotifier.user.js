@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         Vine Fuckers
 // @namespace    http://tampermonkey.net/
-// @version      1.6.2
+// @version      1.6.3
 // @updateURL    https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @downloadURL  https://raw.githubusercontent.com/domischaen/Vine/main/ArticleNotifier.user.js
 // @description  Vine Fuckers
-// @author       Domi, Christof, DiscoJay
+// @author       Domi, DiscoJay
 // @match        https://www.amazon.de/vine/vine-items*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -32,8 +32,25 @@
 	const TAB_EXPIRATION_TIME = 60 * 1000;
 	let lastActiveTimestamp = localStorage.getItem('lastActiveTimestamp') || 0;
 	const tabId = Math.random().toString(36).substr(2, 9);
-	const accountId = document.querySelector('#vvp-tax-interview-form input[name="AccountId"]').value;
+	let accountId = '';
 	let currentArticleID = '';
+
+	window.addEventListener('load', function() {
+		var scripts = document.getElementsByTagName('script');
+
+		for (var i = 0; i < scripts.length; i++) {
+			var script = scripts[i];
+			var content = script.textContent || script.innerText;
+			var match = content.match(/customerId\s*:\s*"([^"]*)"/);
+			if (match) {
+				accountId = match[1]
+				break;
+			}
+		}
+		if (debug) {
+			console.log(accountId)
+		}
+	});
 
 	function checkTokenAndPrompt() {
 		if (!vfToken) {
