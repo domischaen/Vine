@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         Vinefuckers
 // @namespace    http://tampermonkey.net/
-// @version      2.0.0
+// @version      2.0.1
 // @description  Lädt das aktuelle Vine Fuckers Script extern. Um Diebe abzuhalten. :)
 // @author       Domi
 // @match        https://www.amazon.de/vine/vine-items*
 // @grant        GM_xmlhttpRequest
+// @connect      vinefuckers.de
 // ==/UserScript==
 
 (function() {
